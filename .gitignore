@@ -1,4 +1,4 @@
-server/users.txt
+server/*.txt
 server/Server
-client/session.txt
+client/*.txt
 client/Client

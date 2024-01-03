@@ -8,6 +8,7 @@ import (
     "strings"
     "time"
     "os"
+    "slices"
     "donnan/LSpeak/lib"
 )
 
@@ -47,36 +48,24 @@ func handleClient(conn net.Conn) {
         sendMessages(*reader, conn)
     case lib.REGISTER_USER:
         addUser(*reader, conn)
+    case lib.ADM_SAVE_MESSAGES:
+        saveMessages()
+    // case lib.ADM_DELETE_USER:
+    //     removeUser(*reader, conn)
     }
 }
 
-// func writeToFile() { // FIXME: This is horrible. Do this in a better way.
-//     // if != nil {
-//     //     file, err := os.OpenFile(".txt", os.O_APPEND | os.O_CREATE, os.ModeAppend)
-//     //     if err != nil {
-//     //         fmt.Println("Error: ", err)
-//     //     }
-//     //     for _, message := range {
-//     //         file.WriteString(message)
-//     //     }
-//     //     = make([]string, 0)
-//     // }
-//     if donnan != nil {
-//         fmt.Println("Writing...")
-//         file, err := os.OpenFile("donnan.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm) 
-//         if err != nil {
-//             fmt.Println("Error: ", err)
-//         }
-//         var sb strings.Builder
-//         for _, message := range donnan {
-//             sb.WriteString(message)
-//             sb.WriteRune('\n')
-//             file.WriteString(sb.String())
-//             sb.Reset()
-//         }
-//         donnan = make([]string, 0)
-//     }
-// }
+func saveMessages() {
+    for _, userBuffer := range userBuffers {
+        fileName := userBuffer[0] + ".txt"
+        file, _ := os.OpenFile(fileName, os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        for _, message := range userBuffer {
+            file.WriteString(message + "\n")
+        }
+        file.Close()
+    }
+    fmt.Println("Messages saved...")
+}
 
 func addUser(reader bufio.Reader, conn net.Conn) {
     userText, _ := reader.ReadString(lib.TERM_CHAR)
@@ -94,6 +83,10 @@ func addUser(reader bufio.Reader, conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.USER_ADDED))
     fetchUsers()
 }
+
+// func removeUser(reader bufio.Reader, conn net.Conn) {
+//     
+// }
 
 func fetchUsers() {
     file, _ := os.OpenFile("users.txt", os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm)
@@ -134,17 +127,18 @@ func recieveMessage(reader bufio.Reader) {
 }
 
 func sendMessages(reader bufio.Reader, conn net.Conn) {
-    reciever, _ := reader.ReadString(lib.TERM_CHAR) // The user who fetched messages
-    for _, userBuffer := range userBuffers {
-        if reciever == userBuffer[0] {
-            _ = binary.Write(conn, binary.LittleEndian, int16(len(userBuffer)-1)) // Write amount of messages in userBuffer to the connection
-            for i, message := range userBuffer {
+    recipient, _ := reader.ReadString(lib.TERM_CHAR) // The user who fetched messages
+    for i := 0; i < len(userBuffers); i++ {
+        if recipient == userBuffers[i][0] { // If recipient equals name of user in userBuffer
+            _ = binary.Write(conn, binary.LittleEndian, int16(len(userBuffers[i])-1)) // Write amount of messages in userBuffer to the connection
+            for i, message := range userBuffers[i] {
                 if i == 0 {  // If loop is on first index in userBuffer (the name of the user), skip to the next iteration
                     continue // TODO: Maybe do a normal loop (without range) here, so skipping is not required
                 } else {
                     conn.Write([]byte(message)) // Write messages to connection
                 }
             }
+            userBuffers[i] = slices.Delete(userBuffers[i], 1, len(userBuffers[i])) // Empty slice of messages
             return
         }
     }

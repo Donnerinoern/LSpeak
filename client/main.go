@@ -15,6 +15,8 @@ const (
     CMD_FETCH = "fetch"
     CMD_WRITE = "write"
     CMD_REGISTER = "register"
+    ADM_CMD_DELETE_USER = "DELETE"
+    ADM_CMD_SAVE_MESSAGES = "SAVE"
 )
 
 var (
@@ -39,6 +41,10 @@ func main() {
         fetchMessages(conn)
     case CMD_REGISTER:
         registerUser(conn) 
+    // case ADM_CMD_DELETE_USER:
+    //     adminDeleteUser(conn)
+    case ADM_CMD_SAVE_MESSAGES:
+        _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_SAVE_MESSAGES))
     case CMD_WRITE:
         _ = binary.Write(conn, binary.LittleEndian, int16(lib.WRITE))
     }
@@ -65,13 +71,15 @@ func fetchMessages(conn net.Conn) {
     var sb strings.Builder
     sb.WriteString(USERNAME)
     sb.WriteRune(lib.TERM_CHAR)
-    conn.Write([]byte(sb.String())) // Write reciever to connection
+    conn.Write([]byte(sb.String())) // Write recipient to connection
     var numberOfMessages uint16
     _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages) // Read number of messages
     fmt.Println("Messages fetched:", numberOfMessages)
     reader := bufio.NewReader(conn)
+    messageBuffer := make([]string, numberOfMessages)
     for i := 0; i < int(numberOfMessages); i++ {
         fetchedMessage, _ := reader.ReadString(lib.TERM_CHAR)
+        messageBuffer = append(messageBuffer, fetchedMessage)
         fmt.Println(fetchedMessage)
     }
 }
@@ -88,6 +96,7 @@ func registerUser(conn net.Conn) {
         file, _ := os.OpenFile("session.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
         file.WriteString(os.Args[2]+"\n")
         fmt.Printf("User \"%s\" successfully registered!\n", os.Args[2])
+        file.Close()
     } else if response == lib.USER_EXISTS {
         fmt.Println("User already registered...")
     }
@@ -102,9 +111,11 @@ func logIn() {
     scanner := bufio.NewScanner(file)
     scanner.Scan()
     USERNAME = scanner.Text()
+    file.Close()
     fmt.Println("Logged in as:", USERNAME)
 }
 
-// func deleteUser(conn net.Conn) {
-//     
+// func adminDeleteUser(conn net.Conn) {
+//     // os.Remove("session.txt")
+//     _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_DELETE_USER))
 // }

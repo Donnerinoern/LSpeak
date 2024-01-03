@@ -11,6 +11,8 @@ const (
     SEND_MESSAGE = iota
     FETCH_MESSAGES
     REGISTER_USER
+    ADM_DELETE_USER
+    ADM_SAVE_MESSAGES
     WRITE
 )
 
