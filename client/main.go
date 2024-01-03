@@ -17,13 +17,15 @@ const (
     CMD_REGISTER = "register"
 )
 
-const (
-    IDENTITY = "donnan"
+var (
+    USERNAME string
 )
 
 func main() {
-    serverAddr := net.JoinHostPort(lib.HOST, lib.PORT)
-    conn, err := net.Dial(lib.TYPE, serverAddr)
+    if os.Args[1] != CMD_REGISTER {
+        logIn()
+    }
+    conn, err := net.Dial(lib.TYPE, net.JoinHostPort(lib.HOST, lib.PORT))
     if err != nil {
         fmt.Println("Error: ", err)
         return
@@ -45,7 +47,9 @@ func main() {
 func sendMessage(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.SEND_MESSAGE)) // Write opcode to connection
     var sb strings.Builder
-    sb.WriteString(os.Args[2]) // Write reciever to stringbuilder
+    sb.WriteString(USERNAME) // Write author to stringbuilder
+    sb.WriteRune('|')
+    sb.WriteString(os.Args[2]) // Write recipient to stringbuilder
     sb.WriteRune('|')
     sb.WriteString(os.Args[3]) // Write message to stringbuilder
     sb.WriteRune(lib.TERM_CHAR)    // Write TERM_CHAR to stringbuilder
@@ -59,7 +63,7 @@ func sendMessage(conn net.Conn) {
 func fetchMessages(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_MESSAGES)) // Write OpCode to connection
     var sb strings.Builder
-    sb.WriteString(IDENTITY)
+    sb.WriteString(USERNAME)
     sb.WriteRune(lib.TERM_CHAR)
     conn.Write([]byte(sb.String())) // Write reciever to connection
     var numberOfMessages uint16
@@ -75,14 +79,31 @@ func fetchMessages(conn net.Conn) {
 func registerUser(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.REGISTER_USER))
     var sb strings.Builder
-    sb.WriteString(IDENTITY)
+    sb.WriteString(os.Args[2])
     sb.WriteRune(lib.TERM_CHAR)
     conn.Write([]byte(sb.String()))
     var response int16
     _ = binary.Read(conn, binary.LittleEndian, &response)
     if response == lib.USER_ADDED {
-        fmt.Println("User successfully registered!")
+        file, _ := os.OpenFile("session.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        file.WriteString(os.Args[2]+"\n")
+        fmt.Printf("User \"%s\" successfully registered!\n", os.Args[2])
     } else if response == lib.USER_EXISTS {
         fmt.Println("User already registered...")
     }
 }
+
+func logIn() {
+    file, err := os.Open("session.txt")
+    if err != nil {
+        fmt.Println("You need to register a user!")
+        os.Exit(1)
+    }
+    scanner := bufio.NewScanner(file)
+    USERNAME = scanner.Text()
+    fmt.Println(USERNAME)
+}
+
+// func deleteUser(conn net.Conn) {
+//     
+// }

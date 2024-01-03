@@ -115,14 +115,16 @@ func fetchUsers() {
 }
 
 func recieveMessage(reader bufio.Reader) {
-    inputText, _ := reader.ReadString(lib.TERM_CHAR)
+    inputText, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: AUTHOR|RECIPIENT|MESSAGE
     splitString := strings.Split(inputText, "|")
     var sb strings.Builder
     sb.WriteString(time.Now().Format(time.Stamp))
     sb.WriteString(" | ")
-    sb.WriteString(splitString[1])
+    sb.WriteString(splitString[0])
+    sb.WriteString(": ")
+    sb.WriteString(splitString[2])
     var sbForNullTerm strings.Builder
-    sbForNullTerm.WriteString(splitString[0])
+    sbForNullTerm.WriteString(splitString[1])
     sbForNullTerm.WriteRune(lib.TERM_CHAR)
     for i := 0; i < len(userBuffers); i++ {
         if string(userBuffers[i][0]) == sbForNullTerm.String() {
