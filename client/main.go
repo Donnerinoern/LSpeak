@@ -68,7 +68,7 @@ func fetchMessages(conn net.Conn) {
     conn.Write([]byte(sb.String())) // Write reciever to connection
     var numberOfMessages uint16
     _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages) // Read number of messages
-    fmt.Println("Messages:", numberOfMessages)
+    fmt.Println("Messages fetched:", numberOfMessages)
     reader := bufio.NewReader(conn)
     for i := 0; i < int(numberOfMessages); i++ {
         fetchedMessage, _ := reader.ReadString(lib.TERM_CHAR)
@@ -100,8 +100,9 @@ func logIn() {
         os.Exit(1)
     }
     scanner := bufio.NewScanner(file)
+    scanner.Scan()
     USERNAME = scanner.Text()
-    fmt.Println(USERNAME)
+    fmt.Println("Logged in as:", USERNAME)
 }
 
 // func deleteUser(conn net.Conn) {
