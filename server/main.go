@@ -12,7 +12,7 @@ import (
 )
 
 var (
-    userBuffers [][]string
+    userBuffers [][]string // A slice with string slices for buffering the messages to recipients
 )
 
 func main() {
@@ -47,8 +47,6 @@ func handleClient(conn net.Conn) {
         sendMessages(*reader, conn)
     case lib.REGISTER_USER:
         addUser(*reader, conn)
-    // case WRITE:
-    //     writeToFile()
     }
 }
 
@@ -148,5 +146,5 @@ func sendMessages(reader bufio.Reader, conn net.Conn) {
             return
         }
     }
-    _ = binary.Write(conn, binary.LittleEndian, int16(0))
+    _ = binary.Write(conn, binary.LittleEndian, int16(0)) // If user is not registered, respond with amount of messages 0
 }
