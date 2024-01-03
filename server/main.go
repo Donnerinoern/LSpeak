@@ -71,15 +71,15 @@ func handleClient(conn net.Conn) {
 }
 
 // func writeToFile() { // FIXME: This is horrible. Do this in a better way.
-//     // if amrit != nil {
-//     //     file, err := os.OpenFile("amrit.txt", os.O_APPEND | os.O_CREATE, os.ModeAppend)
+//     // if != nil {
+//     //     file, err := os.OpenFile(".txt", os.O_APPEND | os.O_CREATE, os.ModeAppend)
 //     //     if err != nil {
 //     //         fmt.Println("Error: ", err)
 //     //     }
-//     //     for _, message := range amrit {
+//     //     for _, message := range {
 //     //         file.WriteString(message)
 //     //     }
-//     //     amrit = make([]string, 0)
+//     //     = make([]string, 0)
 //     // }
 //     if donnan != nil {
 //         fmt.Println("Writing...")
@@ -157,14 +157,14 @@ func recieveMessage(reader bufio.Reader) {
 func sendMessages(reader bufio.Reader, conn net.Conn) {
     reciever, _ := reader.ReadString(TERM_CHAR)
     // var sb strings.Builder
-    // if reciever == AMRIT {
-    //     _ = binary.Write(conn, binary.LittleEndian, uint16(len(amrit)))
-    //     for _, element := range amrit {
+    // if reciever == {
+    //     _ = binary.Write(conn, binary.LittleEndian, uint16(len()))
+    //     for _, element := range {
     //         sb.WriteString(element)
     //         conn.Write([]byte(sb.String()))
     //         sb.Reset()
     //     }
-    //     amrit = make([]string, 0)
+    //     = make([]string, 0)
     //     printSlices()
     // } else if reciever == DONNAN {
     //     _ = binary.Write(conn, binary.LittleEndian, uint16(len(donnan)))
