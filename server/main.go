@@ -112,9 +112,6 @@ func fetchUsers() {
     for i, user := range users {
         userBuffers[i] = append(userBuffers[i], user)
     }
-    // userBuffers[0] = append(userBuffers[0], "Test!")
-    // userBuffers[0] = append(userBuffers[0], "Mer test!")
-    // userBuffers[0] = append(userBuffers[0], "Test mer!")
     fmt.Println(userBuffers)
     fmt.Println("Users fetched...")
 }
@@ -137,42 +134,19 @@ func recieveMessage(reader bufio.Reader) {
 }
 
 func sendMessages(reader bufio.Reader, conn net.Conn) {
-    reciever, _ := reader.ReadString(lib.TERM_CHAR)
-    // var sb strings.Builder
-    // if reciever == {
-    //     _ = binary.Write(conn, binary.LittleEndian, uint16(len()))
-    //     for _, element := range {
-    //         sb.WriteString(element)
-    //         conn.Write([]byte(sb.String()))
-    //         sb.Reset()
-    //     }
-    //     = make([]string, 0)
-    //     printSlices()
-    // } else if reciever == DONNAN {
-    //     _ = binary.Write(conn, binary.LittleEndian, uint16(len(donnan)))
-    //     for _, element := range donnan {
-    //         sb.WriteString(element)
-    //         conn.Write([]byte(sb.String()))
-    //         sb.Reset()
-    //     }
-    //     donnan = make([]string, 0)
-    //     printSlices()
-    // } else {
-    //     fmt.Println("Unknown reciever. Exiting...")
-    //     return
-    // }
+    reciever, _ := reader.ReadString(lib.TERM_CHAR) // The user who fetched messages
     for _, userBuffer := range userBuffers {
         if reciever == userBuffer[0] {
-            _ = binary.Write(conn, binary.LittleEndian, int16(len(userBuffer)-1))
-            // fmt.Println(userBuffer)
-            // fmt.Println(len(userBuffer)-1)
+            _ = binary.Write(conn, binary.LittleEndian, int16(len(userBuffer)-1)) // Write amount of messages in userBuffer to the connection
             for i, message := range userBuffer {
-                if i == 0 {  // If loop is on first index in userBuffer, skip to the next iteration
+                if i == 0 {  // If loop is on first index in userBuffer (the name of the user), skip to the next iteration
                     continue // TODO: Maybe do a normal loop (without range) here, so skipping is not required
                 } else {
-                    conn.Write([]byte(message))
+                    conn.Write([]byte(message)) // Write messages to connection
                 }
             }
+            return
         }
     }
+    _ = binary.Write(conn, binary.LittleEndian, int16(0))
 }

@@ -57,7 +57,7 @@ func sendMessage(conn net.Conn) {
 }
 
 func fetchMessages(conn net.Conn) {
-    _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_MESSAGES)) // Write opcode to connection
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_MESSAGES)) // Write OpCode to connection
     var sb strings.Builder
     sb.WriteString(IDENTITY)
     sb.WriteRune(lib.TERM_CHAR)
