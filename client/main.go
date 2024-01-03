@@ -7,25 +7,7 @@ import (
     "bufio"
     "strings"
     "encoding/binary"
-)
-
-const (
-    HOST = "192.168.10.126"
-    PORT = "25565"
-    TYPE = "tcp"
-    TERM_CHAR = '\x00'
-)
-
-const (
-    SEND_MESSAGE = iota
-    FETCH_MESSAGES
-    REGISTER_USER
-    WRITE
-)
-
-const (
-    USER_ADDED = iota
-    USER_EXISTS
+    "donnan/LSpeak/lib"
 )
 
 const (
@@ -40,8 +22,8 @@ const (
 )
 
 func main() {
-    serverAddr := net.JoinHostPort(HOST, PORT)
-    conn, err := net.Dial(TYPE, serverAddr)
+    serverAddr := net.JoinHostPort(lib.HOST, lib.PORT)
+    conn, err := net.Dial(lib.TYPE, serverAddr)
     if err != nil {
         fmt.Println("Error: ", err)
         return
@@ -56,17 +38,17 @@ func main() {
     case CMD_REGISTER:
         registerUser(conn) 
     case CMD_WRITE:
-        _ = binary.Write(conn, binary.LittleEndian, int16(WRITE))
+        _ = binary.Write(conn, binary.LittleEndian, int16(lib.WRITE))
     }
 }
 
 func sendMessage(conn net.Conn) {
-    _ = binary.Write(conn, binary.LittleEndian, int16(SEND_MESSAGE)) // Write opcode to connection
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.SEND_MESSAGE)) // Write opcode to connection
     var sb strings.Builder
     sb.WriteString(os.Args[2]) // Write reciever to stringbuilder
     sb.WriteRune('|')
     sb.WriteString(os.Args[3]) // Write message to stringbuilder
-    sb.WriteRune(TERM_CHAR)    // Write TERM_CHAR to stringbuilder
+    sb.WriteRune(lib.TERM_CHAR)    // Write TERM_CHAR to stringbuilder
     _, err := conn.Write([]byte(sb.String())) // Write reciever and message to the connection
     fmt.Println("Sent:", sb.String())
     if err != nil {
@@ -75,32 +57,32 @@ func sendMessage(conn net.Conn) {
 }
 
 func fetchMessages(conn net.Conn) {
-    _ = binary.Write(conn, binary.LittleEndian, int16(FETCH_MESSAGES)) // Write opcode to connection
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_MESSAGES)) // Write opcode to connection
     var sb strings.Builder
     sb.WriteString(IDENTITY)
-    sb.WriteRune(TERM_CHAR)
+    sb.WriteRune(lib.TERM_CHAR)
     conn.Write([]byte(sb.String())) // Write reciever to connection
     var numberOfMessages uint16
     _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages) // Read number of messages
     fmt.Println("Messages:", numberOfMessages)
     reader := bufio.NewReader(conn)
     for i := 0; i < int(numberOfMessages); i++ {
-        fetchedMessage, _ := reader.ReadString(TERM_CHAR)
+        fetchedMessage, _ := reader.ReadString(lib.TERM_CHAR)
         fmt.Println(fetchedMessage)
     }
 }
 
 func registerUser(conn net.Conn) {
-    _ = binary.Write(conn, binary.LittleEndian, int16(REGISTER_USER))
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.REGISTER_USER))
     var sb strings.Builder
     sb.WriteString(IDENTITY)
-    sb.WriteRune(TERM_CHAR)
+    sb.WriteRune(lib.TERM_CHAR)
     conn.Write([]byte(sb.String()))
     var response int16
     _ = binary.Read(conn, binary.LittleEndian, &response)
-    if response == USER_ADDED {
+    if response == lib.USER_ADDED {
         fmt.Println("User successfully registered!")
-    } else if response == USER_EXISTS {
+    } else if response == lib.USER_EXISTS {
         fmt.Println("User already registered...")
     }
 }

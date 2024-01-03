@@ -8,25 +8,7 @@ import (
     "strings"
     "time"
     "os"
-)
-
-const (
-    HOST = "192.168.10.126"
-    PORT = "25565"
-    TYPE = "tcp"
-    TERM_CHAR = '\x00'
-)
-
-const (
-    SEND_MESSAGE = iota
-    FETCH_MESSAGES
-    REGISTER_USER
-    WRITE
-)
-
-const (
-    USER_ADDED = iota
-    USER_EXISTS
+    "donnan/LSpeak/lib"
 )
 
 var (
@@ -35,12 +17,12 @@ var (
 
 func main() {
     fetchUsers()
-    listener, err := net.Listen(TYPE, HOST+":"+PORT) // Listen on port: PORT
+    listener, err := net.Listen(lib.TYPE, lib.HOST+":"+lib.PORT) // Listen on port: PORT
     if err != nil {
         fmt.Println(err)
         return
     } else {
-        fmt.Println("Listening on port: " + PORT)
+        fmt.Println("Listening on port: " + lib.PORT)
     }
     defer listener.Close()
     // Event-loop
@@ -59,11 +41,11 @@ func handleClient(conn net.Conn) {
     _ = binary.Read(conn, binary.LittleEndian, &opCode)
     reader := bufio.NewReader(conn)
     switch opCode {
-    case SEND_MESSAGE:
+    case lib.SEND_MESSAGE:
         recieveMessage(*reader)
-    case FETCH_MESSAGES:
+    case lib.FETCH_MESSAGES:
         sendMessages(*reader, conn)
-    case REGISTER_USER:
+    case lib.REGISTER_USER:
         addUser(*reader, conn)
     // case WRITE:
     //     writeToFile()
@@ -99,19 +81,19 @@ func handleClient(conn net.Conn) {
 // }
 
 func addUser(reader bufio.Reader, conn net.Conn) {
-    userText, _ := reader.ReadString(TERM_CHAR)
+    userText, _ := reader.ReadString(lib.TERM_CHAR)
     file, _ := os.OpenFile("users.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
     for _, userBuffer := range userBuffers {
         if userText == userBuffer[0] {
             file.Close()
-            _ = binary.Write(conn, binary.LittleEndian, int16(USER_EXISTS))
+            _ = binary.Write(conn, binary.LittleEndian, int16(lib.USER_EXISTS))
             return
         }
     }
     file.WriteString(userText + string('\n'))
     file.Close()
     fmt.Println("Added user:", userText)
-    _ = binary.Write(conn, binary.LittleEndian, int16(USER_ADDED))
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.USER_ADDED))
     fetchUsers()
 }
 
@@ -138,7 +120,7 @@ func fetchUsers() {
 }
 
 func recieveMessage(reader bufio.Reader) {
-    inputText, _ := reader.ReadString(TERM_CHAR)
+    inputText, _ := reader.ReadString(lib.TERM_CHAR)
     splitString := strings.Split(inputText, "|")
     var sb strings.Builder
     sb.WriteString(time.Now().Format(time.Stamp))
@@ -146,7 +128,7 @@ func recieveMessage(reader bufio.Reader) {
     sb.WriteString(splitString[1])
     var sbForNullTerm strings.Builder
     sbForNullTerm.WriteString(splitString[0])
-    sbForNullTerm.WriteRune(TERM_CHAR)
+    sbForNullTerm.WriteRune(lib.TERM_CHAR)
     for i := 0; i < len(userBuffers); i++ {
         if string(userBuffers[i][0]) == sbForNullTerm.String() {
             userBuffers[i] = append(userBuffers[i], sb.String())
@@ -155,7 +137,7 @@ func recieveMessage(reader bufio.Reader) {
 }
 
 func sendMessages(reader bufio.Reader, conn net.Conn) {
-    reciever, _ := reader.ReadString(TERM_CHAR)
+    reciever, _ := reader.ReadString(lib.TERM_CHAR)
     // var sb strings.Builder
     // if reciever == {
     //     _ = binary.Write(conn, binary.LittleEndian, uint16(len()))
