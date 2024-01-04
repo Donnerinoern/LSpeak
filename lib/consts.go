@@ -17,6 +17,6 @@ const (
 )
 
 const (
-    USER_ADDED = iota
-    USER_EXISTS
+    OP_SUCCESS = iota
+    OP_FAILURE
 )

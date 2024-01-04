@@ -59,8 +59,14 @@ func sendMessage(conn net.Conn) {
     sb.WriteRune('|')
     sb.WriteString(os.Args[3]) // Write message to stringbuilder
     sb.WriteRune(lib.TERM_CHAR)    // Write TERM_CHAR to stringbuilder
-    _, err := conn.Write([]byte(sb.String())) // Write reciever and message to the connection
-    fmt.Printf("Sent to %s: %s\n", os.Args[2], os.Args[3])
+    _, err := conn.Write([]byte(sb.String())) // Write formatted message (AUTHOR|RECIPIENT|MESSAGE) to connection
+    var response int16
+    _ = binary.Read(conn, binary.LittleEndian, &response) // Get a response from the server
+    if response == lib.OP_SUCCESS {
+        fmt.Printf("Sent to %s: %s\n", os.Args[2], os.Args[3])
+    } else {
+        fmt.Println("User", os.Args[2], "does not exist!")
+    }
     if err != nil {
         fmt.Println("Error: ", err)
     }
@@ -92,12 +98,12 @@ func registerUser(conn net.Conn) {
     conn.Write([]byte(sb.String()))
     var response int16
     _ = binary.Read(conn, binary.LittleEndian, &response)
-    if response == lib.USER_ADDED {
+    if response == lib.OP_SUCCESS {
         file, _ := os.OpenFile("session.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
         file.WriteString(os.Args[2]+"\n")
         fmt.Printf("User \"%s\" successfully registered!\n", os.Args[2])
         file.Close()
-    } else if response == lib.USER_EXISTS {
+    } else if response == lib.OP_SUCCESS {
         fmt.Println("User already registered...")
     }
 }

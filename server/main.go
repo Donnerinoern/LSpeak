@@ -26,8 +26,7 @@ func main() {
         fmt.Println("Listening on port: " + lib.PORT)
     }
     defer listener.Close()
-    // Event-loop
-    for {
+    for { // Event-loop
         conn, err := listener.Accept()
         if err != nil {
             fmt.Println("Error: ", err)
@@ -43,7 +42,7 @@ func handleClient(conn net.Conn) {
     reader := bufio.NewReader(conn)
     switch opCode {
     case lib.SEND_MESSAGE:
-        recieveMessage(*reader)
+        recieveMessage(*reader, conn)
     case lib.FETCH_MESSAGES:
         sendMessages(*reader, conn)
     case lib.REGISTER_USER:
@@ -61,14 +60,14 @@ func addUser(reader bufio.Reader, conn net.Conn) {
     for _, userBuffer := range userBuffers {
         if userText == userBuffer[0] {
             file.Close()
-            _ = binary.Write(conn, binary.LittleEndian, int16(lib.USER_EXISTS))
+            _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_FAILURE))
             return
         }
     }
     file.WriteString(userText + string('\n'))
     file.Close()
     fmt.Println("Added user:", userText)
-    _ = binary.Write(conn, binary.LittleEndian, int16(lib.USER_ADDED))
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_SUCCESS))
     fetchUsers()
 }
 
@@ -91,10 +90,10 @@ func fetchUsers() {
         userBuffers[i] = append(userBuffers[i], user)
     }
     fmt.Println(userBuffers)
-    fmt.Println("Users fetched...")
+    fmt.Println(i, "users fetched...")
 }
 
-func recieveMessage(reader bufio.Reader) {
+func recieveMessage(reader bufio.Reader, conn net.Conn) {
     inputText, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: AUTHOR|RECIPIENT|MESSAGE
     splitString := strings.Split(inputText, "|")
     var sb strings.Builder
@@ -106,10 +105,17 @@ func recieveMessage(reader bufio.Reader) {
     var sbForNullTerm strings.Builder
     sbForNullTerm.WriteString(splitString[1])
     sbForNullTerm.WriteRune(lib.TERM_CHAR)
+    success := false
     for i := 0; i < len(userBuffers); i++ {
-        if string(userBuffers[i][0]) == sbForNullTerm.String() {
+        if string(userBuffers[i][0]) == sbForNullTerm.String() { // If recipient equals the username of userBuffer
             userBuffers[i] = append(userBuffers[i], sb.String())
+            success = true
         }
+    }
+    if success {
+        _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_SUCCESS))
+    } else {
+        _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_FAILURE))
     }
 }
 
@@ -160,3 +166,6 @@ func saveMessages() {
     }
     fmt.Println(numOfMessages, "messages saved...")
 }
+
+// func retrieveMessages() {
+// }
