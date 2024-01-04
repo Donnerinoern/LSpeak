@@ -10,11 +10,11 @@ import (
     "donnan/LSpeak/lib"
 )
 
-const (
+const ( // Commands/args
     CMD_SEND = "send"
-    CMD_FETCH = "fetch"
-    CMD_WRITE = "write"
+    CMD_FETCH = "fetch" // Should fetch take arg[2] as a subcommand for fetching messages/users?
     CMD_REGISTER = "register"
+    CMD_USERS = "users"
     ADM_CMD_DELETE_USER = "DELETE"
     ADM_CMD_SAVE_MESSAGES = "SAVE"
 )
@@ -41,12 +41,12 @@ func main() {
         fetchMessages(conn)
     case CMD_REGISTER:
         registerUser(conn) 
+    case CMD_USERS:
+        fetchUsers(conn)
     // case ADM_CMD_DELETE_USER:
     //     adminDeleteUser(conn)
     case ADM_CMD_SAVE_MESSAGES:
         _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_SAVE_MESSAGES))
-    case CMD_WRITE:
-        _ = binary.Write(conn, binary.LittleEndian, int16(lib.WRITE))
     }
 }
 
@@ -106,6 +106,25 @@ func registerUser(conn net.Conn) {
     } else if response == lib.OP_SUCCESS {
         fmt.Println("User already registered...")
     }
+}
+
+func fetchUsers(conn net.Conn) {
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_USERS))
+    var numberOfUsers int32
+    _ = binary.Read(conn, binary.LittleEndian, &numberOfUsers)
+    if numberOfUsers == 0 {
+        fmt.Println("No users registered...")
+        return
+    }
+    var sb strings.Builder
+    sb.WriteString("Registered users:\n")
+    reader := bufio.NewReader(conn)
+    for i := 0; i < int(numberOfUsers); i++ {
+        fetchedUser, _ := reader.ReadString(lib.TERM_CHAR)
+        sb.WriteString(fetchedUser)
+        sb.WriteRune('\n')
+    }
+    fmt.Print(sb.String())
 }
 
 func logIn() {

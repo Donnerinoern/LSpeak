@@ -17,7 +17,7 @@ var (
 )
 
 func main() {
-    fetchUsers()
+    retrieveUsers()
     listener, err := net.Listen(lib.TYPE, lib.HOST+":"+lib.PORT) // Listen on port: PORT
     if err != nil {
         fmt.Println(err)
@@ -47,10 +47,12 @@ func handleClient(conn net.Conn) {
         sendMessages(*reader, conn)
     case lib.REGISTER_USER:
         addUser(*reader, conn)
-    case lib.ADM_SAVE_MESSAGES:
-        saveMessages()
+    case lib.FETCH_USERS:
+        sendUsers(conn)
     // case lib.ADM_DELETE_USER:
     //     removeUser(*reader, conn)
+    case lib.ADM_SAVE_MESSAGES:
+        saveMessages()
     }
 }
 
@@ -68,14 +70,14 @@ func addUser(reader bufio.Reader, conn net.Conn) {
     file.Close()
     fmt.Println("Added user:", userText)
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_SUCCESS))
-    fetchUsers()
+    retrieveUsers()
 }
 
 // func removeUser(reader bufio.Reader, conn net.Conn) {
 //     
 // }
 
-func fetchUsers() {
+func retrieveUsers() {
     file, _ := os.OpenFile("users.txt", os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm)
     scanner := bufio.NewScanner(file)
     users := make([]string, 0) // Make new slice for users
@@ -93,6 +95,13 @@ func fetchUsers() {
     fmt.Println(i, "users fetched...")
 }
 
+func sendUsers(conn net.Conn) {
+    _ = binary.Write(conn, binary.LittleEndian, int32(len(userBuffers)))
+    for _, userBuffer := range userBuffers {
+        conn.Write([]byte(userBuffer[0]))
+    }
+}
+
 func recieveMessage(reader bufio.Reader, conn net.Conn) {
     inputText, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: AUTHOR|RECIPIENT|MESSAGE
     splitString := strings.Split(inputText, "|")
@@ -103,8 +112,8 @@ func recieveMessage(reader bufio.Reader, conn net.Conn) {
     sb.WriteString(": ")
     sb.WriteString(splitString[2])
     var sbForNullTerm strings.Builder
-    sbForNullTerm.WriteString(splitString[1])
-    sbForNullTerm.WriteRune(lib.TERM_CHAR)
+    sbForNullTerm.WriteString(splitString[1]) // TODO: Should maybe cleanup username so this isn't needed
+    sbForNullTerm.WriteRune(lib.TERM_CHAR)    // stringbuilder for comparing username with recipient (because of null char)
     success := false
     for i := 0; i < len(userBuffers); i++ {
         if string(userBuffers[i][0]) == sbForNullTerm.String() { // If recipient equals the username of userBuffer
@@ -144,7 +153,7 @@ func saveMessages() {
         if len(userBuffer) <= 1 { // Skip iteration if there are no messages
             continue
         }
-        userNameSlice := []byte(userBuffer[0])                                                 // TODO: Figure out a better way to do this
+        userNameSlice := []byte(userBuffer[0])                                                 // TODO: Clean up username or do something better
         userNameSlice = slices.Delete(userNameSlice, len(userNameSlice)-1, len(userNameSlice)) // Removes the null character from the username
         _, err := os.Stat("messages") // Check if directory exists
         if err != nil {
