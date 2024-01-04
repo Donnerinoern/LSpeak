@@ -60,7 +60,7 @@ func sendMessage(conn net.Conn) {
     sb.WriteString(os.Args[3]) // Write message to stringbuilder
     sb.WriteRune(lib.TERM_CHAR)    // Write TERM_CHAR to stringbuilder
     _, err := conn.Write([]byte(sb.String())) // Write reciever and message to the connection
-    fmt.Println("Sent:", sb.String())
+    fmt.Printf("Sent to %s: %s\n", os.Args[2], os.Args[3])
     if err != nil {
         fmt.Println("Error: ", err)
     }

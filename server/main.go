@@ -55,18 +55,6 @@ func handleClient(conn net.Conn) {
     }
 }
 
-func saveMessages() {
-    for _, userBuffer := range userBuffers {
-        fileName := userBuffer[0] + ".txt"
-        file, _ := os.OpenFile(fileName, os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
-        for _, message := range userBuffer {
-            file.WriteString(message + "\n")
-        }
-        file.Close()
-    }
-    fmt.Println("Messages saved...")
-}
-
 func addUser(reader bufio.Reader, conn net.Conn) {
     userText, _ := reader.ReadString(lib.TERM_CHAR)
     file, _ := os.OpenFile("users.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
@@ -94,7 +82,6 @@ func fetchUsers() {
     users := make([]string, 0) // Make new slice for users
     i := 0                     // Index users
     for scanner.Scan() {
-        fmt.Println("User:", scanner.Text())
         users = append(users, scanner.Text())
         i++
     }
@@ -143,4 +130,33 @@ func sendMessages(reader bufio.Reader, conn net.Conn) {
         }
     }
     _ = binary.Write(conn, binary.LittleEndian, int16(0)) // If user is not registered, respond with amount of messages 0
+}
+
+func saveMessages() {
+    var numOfMessages int
+    for _, userBuffer := range userBuffers {
+        if len(userBuffer) <= 1 { // Skip iteration if there are no messages
+            continue
+        }
+        userNameSlice := []byte(userBuffer[0])                                                 // TODO: Figure out a better way to do this
+        userNameSlice = slices.Delete(userNameSlice, len(userNameSlice)-1, len(userNameSlice)) // Removes the null character from the username
+        _, err := os.Stat("messages") // Check if directory exists
+        if err != nil {
+            os.Mkdir("messages", os.ModePerm) // If it doesn't, create it
+        }
+        file, err := os.OpenFile("messages/" + string(userNameSlice) + ".txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        if err != nil {
+            fmt.Println("Error:", err)
+            return
+        }
+        for i, message := range userBuffer {
+            if i == 0 { // Skip iteration on username
+                continue
+            }
+            file.WriteString(message + "\n")
+            numOfMessages++
+        }
+        file.Close()
+    }
+    fmt.Println(numOfMessages, "messages saved...")
 }
