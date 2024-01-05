@@ -7,6 +7,7 @@ Coming from Java, writing this in Go was a pleasure. I know the code isn't good.
 I'll probably keep working on this until there is no more to change or to add. Feel free to use this for whatever you'd like.
 
 ### Commands/args
+---
 
 - send (takes in a string in quotation marks)
 - fetch (none)
@@ -24,6 +25,7 @@ I'll probably keep working on this until there is no more to change or to add. F
 `lsc users`
 
 ### OpCodes
+---
 
 I don't know if calling these op codes is "right" or "correct". Let me know if you have a more correct alternative.
 
@@ -39,6 +41,7 @@ OpCodes lets the server know what operation is requested. For every connection w
 WRITE is deprecated/removed and was only used for testing.
 
 ### Response
+---
 
 When a user tries to register or send a message to a unregistered user, the server will respond with an integer corresponding with the result of the operation. This is either a OP_SUCCESS, or a OP_FAILURE.
 
