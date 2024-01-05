@@ -10,7 +10,8 @@ I'll probably keep working on this until there is no more to change or to add. F
 
 - send (takes in a string in quotation marks)
 - fetch (none)
-- register (reads from const IDENTITY. will be changed eventually)
+- register (string)
+- users (none)
 
 ##### Examples:
 
@@ -19,6 +20,8 @@ I'll probably keep working on this until there is no more to change or to add. F
 `lsc fetch`
 
 `lsc register`
+
+`lsc users`
 
 ### OpCodes
 
@@ -31,15 +34,15 @@ OpCodes lets the server know what operation is requested. For every connection w
 | SEND_MESSAGE | 0 |
 | FETCH_MESSAGES | 1 | 
 | REGISTER_USER | 2 |
-| ~~WRITE~~ | 3 |
+| FETCH_USERS | 3 |
 
 WRITE is deprecated/removed and was only used for testing.
 
-### Registration response
+### Response
 
-When a user tries to register, the server will respond with an integer corresponding with the result of the registration. This is either a USER_ADDED, or a USER_EXISTS.
+When a user tries to register or send a message to a unregistered user, the server will respond with an integer corresponding with the result of the operation. This is either a OP_SUCCESS, or a OP_FAILURE.
 
 | Name | Integer value |
 | ---- | ------------- |
-| USER_ADDED | 0 |
-| USER_EXISTS | 1 |
+| OP_SUCCESS | 0 |
+| OP_FAILURE | 1 |
