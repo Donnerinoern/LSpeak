@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"net"
     "strings"
-    "time"
     "os"
     "slices"
     "donnan/LSpeak/lib"
 )
 
 var (
-    userBuffers [][]string // A slice with string slices for buffering the messages to recipients
+    userBuffers [][]string // A slice of string slices for buffering messages to recipients
 )
 
 func main() {
@@ -53,22 +52,25 @@ func handleClient(conn net.Conn) {
     //     removeUser(*reader, conn)
     case lib.ADM_SAVE_MESSAGES:
         saveMessages()
+    case lib.ADM_RETRIEVE_MESSAGES:
+        retrieveMessages()    
     }
 }
 
 func addUser(reader bufio.Reader, conn net.Conn) {
-    userText, _ := reader.ReadString(lib.TERM_CHAR)
+    username, _ := reader.ReadString(lib.TERM_CHAR)
+    username = lib.RemoveTermChar(username)
     file, _ := os.OpenFile("users.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
     for _, userBuffer := range userBuffers {
-        if userText == userBuffer[0] {
+        if username == userBuffer[0] {
             file.Close()
             _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_FAILURE))
             return
         }
     }
-    file.WriteString(userText + string('\n'))
+    file.WriteString(username + string('\n'))
     file.Close()
-    fmt.Println("Added user:", userText)
+    fmt.Println("Added user:", username)
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_SUCCESS))
     retrieveUsers()
 }
@@ -92,7 +94,7 @@ func retrieveUsers() {
         userBuffers[i] = append(userBuffers[i], user)
     }
     fmt.Println(userBuffers)
-    fmt.Println(i, "users fetched...")
+    fmt.Println(i, "users registered...")
 }
 
 func sendUsers(conn net.Conn) {
@@ -103,14 +105,12 @@ func sendUsers(conn net.Conn) {
 }
 
 func recieveMessage(reader bufio.Reader, conn net.Conn) {
-    inputText, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: AUTHOR|RECIPIENT|MESSAGE
-    splitString := strings.Split(inputText, "|")
+    inputText, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: DATETIME|AUTHOR|RECIPIENT|MESSAGE
+    splitString := strings.Split(inputText, "|")     // Should I create a struct/type for this?
     var sb strings.Builder
-    sb.WriteString(time.Now().Format(time.Stamp))
-    sb.WriteString(" | ")
-    sb.WriteString(splitString[0])
-    sb.WriteString(": ")
-    sb.WriteString(splitString[2])
+    // sb.WriteString(splitString[0])
+    // sb.WriteString(": ")
+    // sb.WriteString(splitString[2])
     var sbForNullTerm strings.Builder
     sbForNullTerm.WriteString(splitString[1]) // TODO: Should maybe cleanup username so this isn't needed
     sbForNullTerm.WriteRune(lib.TERM_CHAR)    // stringbuilder for comparing username with recipient (because of null char)
@@ -147,19 +147,19 @@ func sendMessages(reader bufio.Reader, conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(0)) // If user is not registered, respond with amount of messages 0
 }
 
-func saveMessages() {
+func saveMessages() { // Should this respond with result?
     var numOfMessages int
-    for _, userBuffer := range userBuffers {
+    for i, userBuffer := range userBuffers {
         if len(userBuffer) <= 1 { // Skip iteration if there are no messages
             continue
         }
-        userNameSlice := []byte(userBuffer[0])                                                 // TODO: Clean up username or do something better
-        userNameSlice = slices.Delete(userNameSlice, len(userNameSlice)-1, len(userNameSlice)) // Removes the null character from the username
+        // userNameSlice := []byte(userBuffer[0])                                                 // TODO: Clean up username or do something better
+        // userNameSlice = slices.Delete(userNameSlice, len(userNameSlice)-1, len(userNameSlice)) // Removes the null character from the username
         _, err := os.Stat("messages") // Check if directory exists
         if err != nil {
             os.Mkdir("messages", os.ModePerm) // If it doesn't, create it
         }
-        file, err := os.OpenFile("messages/" + string(userNameSlice) + ".txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        file, err := os.OpenFile("messages/" + string(userBuffer[0]) + ".txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
         if err != nil {
             fmt.Println("Error:", err)
             return
@@ -172,9 +172,21 @@ func saveMessages() {
             numOfMessages++
         }
         file.Close()
+        userBuffers[i] = slices.Delete(userBuffers[i], 1, len(userBuffers[i])) // Empty message buffer/slice of messages
     }
     fmt.Println(numOfMessages, "messages saved...")
 }
 
-// func retrieveMessages() {
-// }
+func retrieveMessages() { // TODO: Format messages either when client recieves, or when server sends
+    dirSlice, err := os.ReadDir("messages")
+    if err != nil {
+        fmt.Println("Error:", err)
+    }
+    for _, file := range dirSlice {
+        openedFile, _ := os.Open("messages/" + file.Name())
+        scanner := bufio.NewScanner(openedFile)
+        for scanner.Scan() {
+            fmt.Println(scanner.Text())
+        }
+    }
+}

@@ -16,7 +16,8 @@ const ( // Commands/args
     CMD_REGISTER = "register"
     CMD_USERS = "users"
     ADM_CMD_DELETE_USER = "DELETE"
-    ADM_CMD_SAVE_MESSAGES = "SAVE"
+    ADM_CMD_SAVE_MESSAGES = "SAVE"  
+    ADM_CMD_RETRIEVE_MESSAGES = "RETRIEVE"
 )
 
 var (
@@ -24,6 +25,10 @@ var (
 )
 
 func main() {
+    if len(os.Args) == 1 {
+        fmt.Println("Please provide a command.")
+        return
+    }
     if os.Args[1] != CMD_REGISTER {
         logIn()
     }
@@ -47,23 +52,20 @@ func main() {
     //     adminDeleteUser(conn)
     case ADM_CMD_SAVE_MESSAGES:
         _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_SAVE_MESSAGES))
+    case ADM_CMD_RETRIEVE_MESSAGES:
+        _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_RETRIEVE_MESSAGES))
     }
 }
 
-func sendMessage(conn net.Conn) {
+func sendMessage(conn net.Conn) { // Use a different seperation character? Currently uses pipe (|)
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.SEND_MESSAGE)) // Write opcode to connection
-    var sb strings.Builder
-    sb.WriteString(USERNAME) // Write author to stringbuilder
-    sb.WriteRune('|')
-    sb.WriteString(os.Args[2]) // Write recipient to stringbuilder
-    sb.WriteRune('|')
-    sb.WriteString(os.Args[3]) // Write message to stringbuilder
-    sb.WriteRune(lib.TERM_CHAR)    // Write TERM_CHAR to stringbuilder
-    _, err := conn.Write([]byte(sb.String())) // Write formatted message (AUTHOR|RECIPIENT|MESSAGE) to connection
+    formattedMessage := lib.FormatMessage(USERNAME, os.Args[2], os.Args[3])
+    _, err := conn.Write([]byte(formattedMessage)) // Write formatted message (DATETIME|AUTHOR|RECIPIENT|MESSAGE) to connection
     var response int16
     _ = binary.Read(conn, binary.LittleEndian, &response) // Get a response from the server
     if response == lib.OP_SUCCESS {
         fmt.Printf("Sent to %s: %s\n", os.Args[2], os.Args[3])
+        fmt.Println(formattedMessage) // TODO: Remove
     } else {
         fmt.Println("User", os.Args[2], "does not exist!")
     }
@@ -139,8 +141,3 @@ func logIn() {
     file.Close()
     fmt.Println("Logged in as:", USERNAME)
 }
-
-// func adminDeleteUser(conn net.Conn) {
-//     // os.Remove("session.txt")
-//     _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_DELETE_USER))
-// }
