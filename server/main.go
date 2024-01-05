@@ -105,19 +105,19 @@ func sendUsers(conn net.Conn) {
 }
 
 func recieveMessage(reader bufio.Reader, conn net.Conn) {
-    inputText, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: DATETIME|AUTHOR|RECIPIENT|MESSAGE
-    splitString := strings.Split(inputText, "|")     // Should I create a struct/type for this?
-    var sb strings.Builder
+    message, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: DATETIME|AUTHOR|RECIPIENT|MESSAGE
+    splitMessage := strings.Split(message, "|")    // Should I create a struct/type for messages?
+    // var sb strings.Builder
     // sb.WriteString(splitString[0])
     // sb.WriteString(": ")
     // sb.WriteString(splitString[2])
-    var sbForNullTerm strings.Builder
-    sbForNullTerm.WriteString(splitString[1]) // TODO: Should maybe cleanup username so this isn't needed
-    sbForNullTerm.WriteRune(lib.TERM_CHAR)    // stringbuilder for comparing username with recipient (because of null char)
+    // var sbForNullTerm strings.Builder
+    // sbForNullTerm.WriteString(splitString[1]) // TODO: Should maybe cleanup username so this isn't needed
+    // sbForNullTerm.WriteRune(lib.TERM_CHAR)    // stringbuilder for comparing username with recipient (because of null char)
     success := false
     for i := 0; i < len(userBuffers); i++ {
-        if string(userBuffers[i][0]) == sbForNullTerm.String() { // If recipient equals the username of userBuffer
-            userBuffers[i] = append(userBuffers[i], sb.String())
+        if string(userBuffers[i][0]) == splitMessage[2] { // If recipient equals the username of userBuffer
+            userBuffers[i] = append(userBuffers[i], message)
             success = true
         }
     }
@@ -130,6 +130,7 @@ func recieveMessage(reader bufio.Reader, conn net.Conn) {
 
 func sendMessages(reader bufio.Reader, conn net.Conn) {
     recipient, _ := reader.ReadString(lib.TERM_CHAR) // The user who fetched messages
+    recipient = lib.RemoveTermChar(recipient)
     for i := 0; i < len(userBuffers); i++ {
         if recipient == userBuffers[i][0] { // If recipient equals name of user in userBuffer
             _ = binary.Write(conn, binary.LittleEndian, int16(len(userBuffers[i])-1)) // Write amount of messages in userBuffer to the connection
@@ -153,8 +154,6 @@ func saveMessages() { // Should this respond with result?
         if len(userBuffer) <= 1 { // Skip iteration if there are no messages
             continue
         }
-        // userNameSlice := []byte(userBuffer[0])                                                 // TODO: Clean up username or do something better
-        // userNameSlice = slices.Delete(userNameSlice, len(userNameSlice)-1, len(userNameSlice)) // Removes the null character from the username
         _, err := os.Stat("messages") // Check if directory exists
         if err != nil {
             os.Mkdir("messages", os.ModePerm) // If it doesn't, create it

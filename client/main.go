@@ -60,7 +60,7 @@ func main() {
 func sendMessage(conn net.Conn) { // Use a different seperation character? Currently uses pipe (|)
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.SEND_MESSAGE)) // Write opcode to connection
     formattedMessage := lib.FormatMessage(USERNAME, os.Args[2], os.Args[3])
-    _, err := conn.Write([]byte(formattedMessage)) // Write formatted message (DATETIME|AUTHOR|RECIPIENT|MESSAGE) to connection
+    _, err := conn.Write([]byte(formattedMessage)) // Write formatted message (DATE|AUTHOR|RECIPIENT|MESSAGE) to connection
     var response int16
     _ = binary.Read(conn, binary.LittleEndian, &response) // Get a response from the server
     if response == lib.OP_SUCCESS {
@@ -76,10 +76,7 @@ func sendMessage(conn net.Conn) { // Use a different seperation character? Curre
 
 func fetchMessages(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_MESSAGES)) // Write OpCode to connection
-    var sb strings.Builder
-    sb.WriteString(USERNAME)
-    sb.WriteRune(lib.TERM_CHAR)
-    conn.Write([]byte(sb.String())) // Write recipient to connection
+    conn.Write([]byte(USERNAME + string(lib.TERM_CHAR))) // Write recipient (client's username) and TERM_CHAR to connection
     var numberOfMessages uint16
     _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages) // Read number of messages
     fmt.Println("Messages fetched:", numberOfMessages)
