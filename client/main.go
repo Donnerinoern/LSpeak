@@ -11,7 +11,7 @@ import (
 )
 
 const ( // Commands/args
-    CMD_SEND = "send"
+    CMD_SEND = "send"   // TODO: Error check all commands that take two or more args
     CMD_FETCH = "fetch" // Should fetch take arg[2] as a subcommand for fetching messages/users?
     CMD_REGISTER = "register"
     CMD_USERS = "users"
@@ -51,17 +51,17 @@ func main() {
     // case ADM_CMD_DELETE_USER:
     //     adminDeleteUser(conn)
     case ADM_CMD_SAVE_MESSAGES:
-        _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_SAVE_MESSAGES))
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.ADM_SAVE_MESSAGES))
     case ADM_CMD_RETRIEVE_MESSAGES:
-        _ = binary.Write(conn, binary.LittleEndian, int16(lib.ADM_RETRIEVE_MESSAGES))
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.ADM_RETRIEVE_MESSAGES))
     }
 }
 
-func sendMessage(conn net.Conn) { // Use a different seperation character? Currently uses pipe (|)
+func sendMessage(conn net.Conn) { 
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.SEND_MESSAGE)) // Write opcode to connection
     formattedMessage := lib.FormatMessage(USERNAME, os.Args[2], os.Args[3])
-    _, err := conn.Write([]byte(formattedMessage)) // Write formatted message (DATE|AUTHOR|RECIPIENT|MESSAGE) to connection
-    var response int16
+    _, err := conn.Write([]byte(formattedMessage)) // Write formatted message (DATETIME|AUTHOR|RECIPIENT|MESSAGE) to connection
+    var response uint8                             // Use a different seperation character? Currently uses pipe (|)
     _ = binary.Read(conn, binary.LittleEndian, &response) // Get a response from the server
     if response == lib.OP_SUCCESS {
         fmt.Printf("Sent to %s: %s\n", os.Args[2], os.Args[3])
@@ -77,15 +77,23 @@ func sendMessage(conn net.Conn) { // Use a different seperation character? Curre
 func fetchMessages(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_MESSAGES)) // Write OpCode to connection
     conn.Write([]byte(USERNAME + string(lib.TERM_CHAR))) // Write recipient (client's username) and TERM_CHAR to connection
-    var numberOfMessages uint16
+    var numberOfMessages uint32
     _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages) // Read number of messages
     fmt.Println("Messages fetched:", numberOfMessages)
     reader := bufio.NewReader(conn)
+    var sb strings.Builder
     messageBuffer := make([]string, numberOfMessages)
-    for i := 0; i < int(numberOfMessages); i++ {
+    for i := 0; i < int(numberOfMessages); i++ { // For each message
         fetchedMessage, _ := reader.ReadString(lib.TERM_CHAR)
-        messageBuffer = append(messageBuffer, fetchedMessage)
-        fmt.Println(fetchedMessage)
+        splitMessage := strings.Split(fetchedMessage, "|")
+        sb.WriteString(splitMessage[0])
+        sb.WriteString(" | ")
+        sb.WriteString(splitMessage[1])
+        sb.WriteString(": ")
+        sb.WriteString(splitMessage[3])
+        fmt.Println(sb.String())
+        messageBuffer = append(messageBuffer, sb.String()) // TODO: Sort messages by author and display them sorted
+        sb.Reset()
     }
 }
 
@@ -95,7 +103,7 @@ func registerUser(conn net.Conn) {
     sb.WriteString(os.Args[2])
     sb.WriteRune(lib.TERM_CHAR)
     conn.Write([]byte(sb.String()))
-    var response int16
+    var response uint8
     _ = binary.Read(conn, binary.LittleEndian, &response)
     if response == lib.OP_SUCCESS {
         file, _ := os.OpenFile("session.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
@@ -109,7 +117,7 @@ func registerUser(conn net.Conn) {
 
 func fetchUsers(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_USERS))
-    var numberOfUsers int32
+    var numberOfUsers uint32
     _ = binary.Read(conn, binary.LittleEndian, &numberOfUsers)
     if numberOfUsers == 0 {
         fmt.Println("No users registered...")

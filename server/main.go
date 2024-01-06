@@ -64,14 +64,14 @@ func addUser(reader bufio.Reader, conn net.Conn) {
     for _, userBuffer := range userBuffers {
         if username == userBuffer[0] {
             file.Close()
-            _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_FAILURE))
+            _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
             return
         }
     }
     file.WriteString(username + string('\n'))
     file.Close()
     fmt.Println("Added user:", username)
-    _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_SUCCESS))
+    _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_SUCCESS))
     retrieveUsers()
 }
 
@@ -98,7 +98,7 @@ func retrieveUsers() {
 }
 
 func sendUsers(conn net.Conn) {
-    _ = binary.Write(conn, binary.LittleEndian, int32(len(userBuffers)))
+    _ = binary.Write(conn, binary.LittleEndian, uint32(len(userBuffers)))
     for _, userBuffer := range userBuffers {
         conn.Write([]byte(userBuffer[0]))
     }
@@ -133,7 +133,7 @@ func sendMessages(reader bufio.Reader, conn net.Conn) {
     recipient = lib.RemoveTermChar(recipient)
     for i := 0; i < len(userBuffers); i++ {
         if recipient == userBuffers[i][0] { // If recipient equals name of user in userBuffer
-            _ = binary.Write(conn, binary.LittleEndian, int16(len(userBuffers[i])-1)) // Write amount of messages in userBuffer to the connection
+            _ = binary.Write(conn, binary.LittleEndian, uint32(len(userBuffers[i])-1)) // Write number of messages in userBuffer to the connection
             for i, message := range userBuffers[i] {
                 if i == 0 {  // If loop is on first index in userBuffer (the name of the user), skip to the next iteration
                     continue // TODO: Maybe do a normal loop (without range) here, so skipping is not required
