@@ -164,7 +164,7 @@ func sendMessages(reader bufio.Reader, conn net.Conn) { // TODO: This is complic
         }
     }
     for _, messageBuffer := range messageBuffers { // Loop through messageBuffers
-        _ = binary.Write(conn, binary.LittleEndian, uint32(len(messageBuffer)-1)) // Write number of unique authors to connection
+        _ = binary.Write(conn, binary.LittleEndian, uint32(len(messageBuffer)-1)) // Write number of messages from author
         conn.Write([]byte(messageBuffer[0]+string(lib.TERM_CHAR))) // Write author to connection
         for i, message := range messageBuffer {
             if i == 0 { // TODO: Again, maybe change loop
