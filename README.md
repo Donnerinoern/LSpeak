@@ -9,20 +9,20 @@ I'll probably keep working on this until there is no more to change or to add. F
 ### Commands/args
 ---
 
-- send (takes in a string in quotation marks)
-- fetch (none)
+- send (string)
+- fetch
 - register (string)
-- users (none)
+- users
 
 ##### Examples:
 
-`lsc send linus "Linux <3"`
+`./Client send foo "Hello, Foo. Good morning."`
 
-`lsc fetch`
+`./Client fetch`
 
-`lsc register`
+`./Client register donnan`
 
-`lsc users`
+`./Client users`
 
 ### OpCodes
 ---
@@ -37,8 +37,6 @@ OpCodes lets the server know what operation is requested. For every connection w
 | FETCH_MESSAGES | 1 | 
 | REGISTER_USER | 2 |
 | FETCH_USERS | 3 |
-
-WRITE is deprecated/removed and was only used for testing.
 
 ### Response
 ---
