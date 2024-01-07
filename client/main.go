@@ -65,35 +65,35 @@ func sendMessage(conn net.Conn) {
     _ = binary.Read(conn, binary.LittleEndian, &response) // Get a response from the server
     if response == lib.OP_SUCCESS {
         fmt.Printf("Sent to %s: %s\n", os.Args[2], os.Args[3])
-        fmt.Println(formattedMessage) // TODO: Remove
     } else {
         fmt.Println("User", os.Args[2], "does not exist!")
     }
     if err != nil {
-        fmt.Println("Error: ", err)
+        fmt.Println("Error:", err)
     }
 }
 
 func fetchMessages(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_MESSAGES)) // Write OpCode to connection
     conn.Write([]byte(USERNAME + string(lib.TERM_CHAR))) // Write recipient (client's username) and TERM_CHAR to connection
-    var numberOfMessages uint32
-    _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages) // Read number of messages
-    fmt.Println("Messages fetched:", numberOfMessages)
-    reader := bufio.NewReader(conn)
-    var sb strings.Builder
-    messageBuffer := make([]string, numberOfMessages)
-    for i := 0; i < int(numberOfMessages); i++ { // For each message
-        fetchedMessage, _ := reader.ReadString(lib.TERM_CHAR)
-        splitMessage := strings.Split(fetchedMessage, "|")
-        sb.WriteString(splitMessage[0])
-        sb.WriteString(" | ")
-        sb.WriteString(splitMessage[1])
-        sb.WriteString(": ")
-        sb.WriteString(splitMessage[3])
-        fmt.Println(sb.String())
-        messageBuffer = append(messageBuffer, sb.String()) // TODO: Sort messages by author and display them sorted
-        sb.Reset()
+    var numberOfAuthors uint32
+    _ = binary.Read(conn, binary.LittleEndian, &numberOfAuthors) // Read number of authors
+    if numberOfAuthors == 0 {
+        fmt.Println("No new messages...")
+        return
+    } else {
+        reader := bufio.NewReader(conn)
+        for i := 0; i < int(numberOfAuthors); i++ { // TODO: Maybe change i to j inside loops already using i, for readability
+            var numberOfMessages uint32
+            _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages)
+            author, _ := reader.ReadString(lib.TERM_CHAR)
+            fmt.Printf("Messages from %s:\n", author)
+            for i := 0; i < int(numberOfMessages); i++ {
+                fetchedMessage, _ := reader.ReadString(lib.TERM_CHAR)
+                formattedMessage := formatIncomingMessage(fetchedMessage)
+                fmt.Println(formattedMessage)
+            }
+        }
     }
 }
 
@@ -145,4 +145,15 @@ func logIn() {
     USERNAME = scanner.Text()
     file.Close()
     fmt.Println("Logged in as:", USERNAME)
+}
+
+func formatIncomingMessage(message string) string {
+    splitMessage := strings.Split(message, "|")
+    var sb strings.Builder
+    sb.WriteString(splitMessage[0])
+    sb.WriteString(" | ")
+    sb.WriteString(splitMessage[1])
+    sb.WriteString(": ")
+    sb.WriteString(splitMessage[3])
+    return sb.String()
 }

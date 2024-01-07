@@ -122,35 +122,63 @@ func recieveMessage(reader bufio.Reader, conn net.Conn) {
         }
     }
     if success {
-        _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_SUCCESS))
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_SUCCESS))
     } else {
-        _ = binary.Write(conn, binary.LittleEndian, int16(lib.OP_FAILURE))
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
     }
 }
 
-func sendMessages(reader bufio.Reader, conn net.Conn) {
+func sendMessages(reader bufio.Reader, conn net.Conn) { // TODO: This is complicated and can probably be done a better way.
     recipient, _ := reader.ReadString(lib.TERM_CHAR) // The user who fetched messages
-    recipient = lib.RemoveTermChar(recipient)
-    for i := 0; i < len(userBuffers); i++ {
-        if recipient == userBuffers[i][0] { // If recipient equals name of user in userBuffer
-            _ = binary.Write(conn, binary.LittleEndian, uint32(len(userBuffers[i])-1)) // Write number of messages in userBuffer to the connection
-            for i, message := range userBuffers[i] {
-                if i == 0 {  // If loop is on first index in userBuffer (the name of the user), skip to the next iteration
-                    continue // TODO: Maybe do a normal loop (without range) here, so skipping is not required
-                } else {
-                    conn.Write([]byte(message)) // Write messages to connection
+    recipient = lib.RemoveTermChar(recipient) // Remove TERM_CHAR from recipient
+    authors := make([]string, 0)
+    var index int // Save index of userBuffer for later
+    for i, userBuffer := range userBuffers { // Loop for finding index and adding authors to []authors
+        if recipient == userBuffer[0] {
+            index = i
+            for i, message := range userBuffer { // TODO: Maybe do a normal loop (without range) here, so skipping is not required
+                if i == 0 { // Skip iteration for recipient username
+                    continue
+                }
+                splitMessage := strings.Split(message, string(lib.SEP_CHAR))
+                if !slices.Contains(authors, splitMessage[1]) {
+                    authors = append(authors, splitMessage[1]) // If author is not in authors, add author to []authors
                 }
             }
-            userBuffers[i] = slices.Delete(userBuffers[i], 1, len(userBuffers[i])) // Empty slice of messages
-            return
         }
     }
-    _ = binary.Write(conn, binary.LittleEndian, int16(0)) // If user is not registered, respond with amount of messages 0
+    _ = binary.Write(conn, binary.LittleEndian, uint32(len(authors))) // Write number of authors to connection
+    if len(authors) == 0 { // If there are no messages (no authors counted), return
+        return
+    }
+    messageBuffers := make([][]string, len(authors))
+    for i, author := range authors { // Add author username as header (index 0) for messageBuffers
+        messageBuffers[i] = append(messageBuffers[i], author)
+    }
+    for i := 1; i < len(userBuffers[index]); i++ { // Loop through messages in userBuffer, using saved index
+        splitMessage := strings.Split(userBuffers[index][i], string(lib.SEP_CHAR))
+        for j := 0; j < len(messageBuffers); j++ { // Loop through messageBuffers for every message
+            if messageBuffers[j][0] == splitMessage[1] { // If author (header) in messageBuffer == message author, add message to buffer
+                messageBuffers[j] = append(messageBuffers[j], userBuffers[index][i])
+            }
+        }
+    }
+    for _, messageBuffer := range messageBuffers { // Loop through messageBuffers
+        _ = binary.Write(conn, binary.LittleEndian, uint32(len(messageBuffer)-1)) // Write number of unique authors to connection
+        conn.Write([]byte(messageBuffer[0]+string(lib.TERM_CHAR))) // Write author to connection
+        for i, message := range messageBuffer {
+            if i == 0 { // TODO: Again, maybe change loop
+                continue
+            }
+            conn.Write([]byte(message)) // Write message to connection
+        }
+    }
+    userBuffers[index] = slices.Delete(userBuffers[index], 1, len(userBuffers[index])) // Clean up
 }
 
 func saveMessages() { // Should this respond with result?
     var numOfMessages int
-    for i, userBuffer := range userBuffers {
+    for i, userBuffer := range userBuffers { // TODO: Is probably redundant. Check out slices.Index() WARN: Nevermind.
         if len(userBuffer) <= 1 { // Skip iteration if there are no messages
             continue
         }
