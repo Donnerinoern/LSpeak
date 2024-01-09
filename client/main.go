@@ -4,20 +4,24 @@ import (
     "fmt"
     "net"
     "os"
+    "log"
     "bufio"
     "strings"
     "encoding/binary"
+    "encoding/hex"
+    "crypto/sha512"
     "donnan/LSpeak/lib"
 )
 
 const ( // Commands/args
-    CMD_SEND = "send"   // TODO: Error check all commands that take two or more args
+    CMD_SEND = "send" 
     CMD_FETCH = "fetch" // Should fetch take arg[2] as a subcommand for fetching messages/users?
-    CMD_REGISTER = "register"
+    CMD_SIGN_UP = "signup"
     CMD_USERS = "users"
-    ADM_CMD_DELETE_USER = "DELETE"
-    ADM_CMD_SAVE_MESSAGES = "SAVE"  
-    ADM_CMD_RETRIEVE_MESSAGES = "RETRIEVE"
+    CMD_LOG_IN = "login"
+    ADM_CMD_DELETE_USER = "DELETE"         // Doesn't work
+    ADM_CMD_SAVE_MESSAGES = "SAVE"         // Works 
+    ADM_CMD_RETRIEVE_MESSAGES = "RETRIEVE" // Doesn't work
 )
 
 var (
@@ -25,39 +29,50 @@ var (
 )
 
 func main() {
-    if len(os.Args) == 1 {
+    if len(os.Args) <= 1 { // If no arg/command
         fmt.Println("Please provide a command.")
         return
-    }
-    if os.Args[1] != CMD_REGISTER {
-        logIn()
-    }
-    conn, err := net.Dial(lib.TYPE, net.JoinHostPort(lib.HOST, lib.PORT))
-    if err != nil {
-        fmt.Println("Error: ", err)
+    } else if os.Args[1] != CMD_SEND && os.Args[1] != CMD_FETCH && os.Args[1] != CMD_SIGN_UP && os.Args[1] != CMD_USERS && os.Args[1] != CMD_LOG_IN {
+        fmt.Println("Please provide a valid command.")
+        fmt.Printf("Commands:\n%s\n%s\n%s\n%s\n%s\n", CMD_SEND, CMD_FETCH, CMD_SIGN_UP, CMD_USERS, CMD_LOG_IN)
         return
     }
+    conn := makeConnection()
     defer conn.Close()
-    // Connection has been established here
     switch os.Args[1] {
-    case CMD_SEND:  
-        sendMessage(conn)
-    case CMD_FETCH:
-        fetchMessages(conn)
-    case CMD_REGISTER:
-        registerUser(conn) 
-    case CMD_USERS:
-        fetchUsers(conn)
+    case CMD_SIGN_UP:
+        signUp(conn)
+    case CMD_LOG_IN:
+        logIn(conn)
+    default:
+        isLoggedIn := isLoggedIn(os.Args[1] == CMD_LOG_IN)
+        if isLoggedIn {
+            switch os.Args[1] {
+            case CMD_SEND: 
+                if len(os.Args) < 4 {
+                    fmt.Println("Please provide a username and a message.")
+                } else {
+                    sendMessage(conn)
+                }
+            case CMD_FETCH:
+                fetchMessages(conn)
+            case CMD_USERS:
+                fetchUsers(conn)
+            }
+        }
+    }
     // case ADM_CMD_DELETE_USER:
     //     adminDeleteUser(conn)
-    case ADM_CMD_SAVE_MESSAGES:
-        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.ADM_SAVE_MESSAGES))
-    case ADM_CMD_RETRIEVE_MESSAGES:
-        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.ADM_RETRIEVE_MESSAGES))
-    }
+    // case ADM_CMD_SAVE_MESSAGES:
+    //     _ = binary.Write(conn, binary.LittleEndian, uint8(lib.ADM_SAVE_MESSAGES))
+    // case ADM_CMD_RETRIEVE_MESSAGES:
+    //     _ = binary.Write(conn, binary.LittleEndian, uint8(lib.ADM_RETRIEVE_MESSAGES))
 }
 
-func sendMessage(conn net.Conn) { 
+func sendMessage(conn net.Conn) {
+    if len(os.Args) < 3 {
+        fmt.Println("Please provide a user and a message.")
+    }
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.SEND_MESSAGE)) // Write opcode to connection
     formattedMessage := lib.FormatMessage(USERNAME, os.Args[2], os.Args[3])
     _, err := conn.Write([]byte(formattedMessage)) // Write formatted message (DATETIME|AUTHOR|RECIPIENT|MESSAGE) to connection
@@ -83,7 +98,7 @@ func fetchMessages(conn net.Conn) {
         return
     } else {
         reader := bufio.NewReader(conn)
-        for i := 0; i < int(numberOfAuthors); i++ { // TODO: Maybe change i to j inside loops already using i, for readability
+        for i := 0; i < int(numberOfAuthors); i++ {
             var numberOfMessages uint32
             _ = binary.Read(conn, binary.LittleEndian, &numberOfMessages)
             author, _ := reader.ReadString(lib.TERM_CHAR)
@@ -97,25 +112,7 @@ func fetchMessages(conn net.Conn) {
     }
 }
 
-func registerUser(conn net.Conn) {
-    _ = binary.Write(conn, binary.LittleEndian, int16(lib.REGISTER_USER))
-    var sb strings.Builder
-    sb.WriteString(os.Args[2])
-    sb.WriteRune(lib.TERM_CHAR)
-    conn.Write([]byte(sb.String()))
-    var response uint8
-    _ = binary.Read(conn, binary.LittleEndian, &response)
-    if response == lib.OP_SUCCESS {
-        file, _ := os.OpenFile("session.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
-        file.WriteString(os.Args[2]+"\n")
-        fmt.Printf("User \"%s\" successfully registered!\n", os.Args[2])
-        file.Close()
-    } else if response == lib.OP_SUCCESS {
-        fmt.Println("User already registered...")
-    }
-}
-
-func fetchUsers(conn net.Conn) {
+func fetchUsers(conn net.Conn) { // TODO: Should users be able to hide?
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.FETCH_USERS))
     var numberOfUsers uint32
     _ = binary.Read(conn, binary.LittleEndian, &numberOfUsers)
@@ -128,23 +125,113 @@ func fetchUsers(conn net.Conn) {
     reader := bufio.NewReader(conn)
     for i := 0; i < int(numberOfUsers); i++ {
         fetchedUser, _ := reader.ReadString(lib.TERM_CHAR)
-        sb.WriteString(fetchedUser)
-        sb.WriteRune('\n')
+        sb.WriteString(fetchedUser+"\n")
     }
     fmt.Print(sb.String())
 }
 
-func logIn() {
-    file, err := os.Open("session.txt")
-    if err != nil {
-        fmt.Println("You need to register a user!")
-        os.Exit(1)
+func signUp(conn net.Conn) bool { // TODO: Register with password. Should call logIn()?
+    var username string
+    var password string
+    fmt.Print("Username: ")
+    fmt.Scanln(&username)
+    for {
+        fmt.Print("Password: ")
+        fmt.Scanln(&password)
+        fmt.Print("Confirm password: ")
+        var confirmPassword string
+        fmt.Scanln(&confirmPassword)
+        if password == confirmPassword {
+            break
+        } else {
+            fmt.Println("Passwords did not match...") // TODO: Maybe clear here, and print "Username: *username*"
+        }
+    }
+    hashedPassword := sha512.Sum512_256([]byte(password))
+    hexHash := hex.EncodeToString(hashedPassword[:])
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.REGISTER_USER))
+    conn.Write([]byte(username+string(lib.TERM_CHAR)))
+    conn.Write([]byte(hexHash+string(lib.TERM_CHAR)))
+    var response uint8
+    _ = binary.Read(conn, binary.LittleEndian, &response)
+    if response == lib.OP_SUCCESS {
+        file, _ := os.OpenFile(".session.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        file.WriteString(username+"\n"+hexHash+"\n")
+        fmt.Printf("User \"%s\" successfully signed up!\n", username)
+        fmt.Println("You are now logged in as:", username)
+        file.Close()
+        return true
+    } else {
+        fmt.Println("User already registered...")
+        return false
+    }
+}
+
+func isLoggedIn(cmdIsLogIn bool) bool {
+    file, err := os.Open(".session.txt")
+    if err != nil && !cmdIsLogIn { // If .session.txt does not exists and command is not "login"
+        fmt.Println("You are not logged in.")
+        for {
+            fmt.Print("Do you want to log in or sign up now? (l)ogin/(s)ignup/(C)ancel ")
+            var input string
+            fmt.Scanln(&input)
+            input = strings.ToLower(input)
+            if input == "l" || input == "login" {
+                conn := makeConnection()
+                defer conn.Close()
+                return logIn(conn)
+            } else if input == "s" || input == "signup" {
+                conn := makeConnection()
+                defer conn.Close()
+                return signUp(conn)
+            } else if input == "c" || input == "" {
+                return false
+            } else {
+                fmt.Println("Please provide a valid choice.")
+            }
+        }
+    } else if cmdIsLogIn {
+        conn := makeConnection()
+        defer conn.Close()
+        return logIn(conn)
     }
     scanner := bufio.NewScanner(file)
     scanner.Scan()
     USERNAME = scanner.Text()
     file.Close()
     fmt.Println("Logged in as:", USERNAME)
+    return true
+}
+
+func logIn(conn net.Conn) bool {
+    var username string
+    fmt.Print("Username: ")
+    fmt.Scanln(&username)
+    var password string
+    fmt.Print("Password: ")
+    fmt.Scanln(&password)
+    hashedPassword := sha512.Sum512_256([]byte(password))
+    hexHash := hex.EncodeToString(hashedPassword[:])
+    fmt.Println(hexHash)
+    conn.Write([]byte(username+string(lib.TERM_CHAR)))
+    conn.Write([]byte(hexHash+string(lib.TERM_CHAR)))
+    var response uint8
+    _ = binary.Read(conn, binary.LittleEndian, &response)
+    if response == lib.OP_SUCCESS {
+        fmt.Println("Successfully logged in!")
+        return true
+    } else {
+        fmt.Println("Could not log in.")
+        return false
+    }
+}
+
+func makeConnection() net.Conn {
+    conn, err := net.Dial(lib.TYPE, net.JoinHostPort(lib.HOST, lib.PORT))
+    if err != nil {
+        log.Fatal("Error:", err)
+    }
+    return conn
 }
 
 func formatIncomingMessage(message string) string {

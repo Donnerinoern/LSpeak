@@ -36,6 +36,7 @@ func main() {
 }
 
 func handleClient(conn net.Conn) {
+    defer conn.Close()
     var opCode int16
     _ = binary.Read(conn, binary.LittleEndian, &opCode)
     reader := bufio.NewReader(conn)
@@ -60,19 +61,46 @@ func handleClient(conn net.Conn) {
 func addUser(reader bufio.Reader, conn net.Conn) {
     username, _ := reader.ReadString(lib.TERM_CHAR)
     username = lib.RemoveTermChar(username)
-    file, _ := os.OpenFile("users.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
-    for _, userBuffer := range userBuffers {
-        if username == userBuffer[0] {
-            file.Close()
-            _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
-            return
+    password, _ := reader.ReadString(lib.TERM_CHAR) // TODO: Make a function for this..?
+    password = lib.RemoveTermChar(password)
+    userExists, _ := checkIfUserExists(username)
+    if userExists {
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
+    } else {
+        file, _ := os.OpenFile(".users.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        file.WriteString(username+"\n")
+        file.Close()
+        _, err := os.Stat("secrets") // Check if directory exists // TODO: Make a function for this..?
+        if err != nil {
+            os.Mkdir("secrets", os.ModePerm) // If it doesn't, create it
         }
+        file, _ = os.OpenFile("secrets/."+username, os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        file.WriteString(password+"\n")
+        fmt.Println("Added user:", username)
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_SUCCESS))
+        retrieveUsers() // TODO: Maybe append userBuffers instead. Unnecessary read from file.
     }
-    file.WriteString(username + string('\n'))
-    file.Close()
-    fmt.Println("Added user:", username)
-    _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_SUCCESS))
-    retrieveUsers()
+}
+
+func logInUser(reader bufio.Reader, conn net.Conn) {
+    username, _ := reader.ReadString(lib.TERM_CHAR)
+    username = lib.RemoveTermChar(username)
+    password, _ := reader.ReadString(lib.TERM_CHAR) // TODO: Make a function for this..?
+    password = lib.RemoveTermChar(password)
+    userExists, _ := checkIfUserExists(username)
+    if userExists {
+        file, _ := os.Open("secrets/."+username)
+        scanner := bufio.NewScanner(file)
+        scanner.Scan()
+        hash := scanner.Text()
+        if hash == password {
+            _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_SUCCESS))
+        } else {
+            _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
+        }
+    } else {
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
+    }
 }
 
 // func removeUser(reader bufio.Reader, conn net.Conn) {
@@ -80,7 +108,7 @@ func addUser(reader bufio.Reader, conn net.Conn) {
 // }
 
 func retrieveUsers() {
-    file, _ := os.OpenFile("users.txt", os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm)
+    file, _ := os.OpenFile(".users.txt", os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm) // TODO: Can probably be changed to os.Open()
     scanner := bufio.NewScanner(file)
     users := make([]string, 0) // Make new slice for users
     i := 0                     // Index users
@@ -100,20 +128,13 @@ func retrieveUsers() {
 func sendUsers(conn net.Conn) {
     _ = binary.Write(conn, binary.LittleEndian, uint32(len(userBuffers)))
     for _, userBuffer := range userBuffers {
-        conn.Write([]byte(userBuffer[0]))
+        conn.Write([]byte(userBuffer[0] + string(lib.TERM_CHAR)))
     }
 }
 
 func recieveMessage(reader bufio.Reader, conn net.Conn) {
     message, _ := reader.ReadString(lib.TERM_CHAR) // Message from client, in format: DATETIME|AUTHOR|RECIPIENT|MESSAGE
     splitMessage := strings.Split(message, "|")    // Should I create a struct/type for messages?
-    // var sb strings.Builder
-    // sb.WriteString(splitString[0])
-    // sb.WriteString(": ")
-    // sb.WriteString(splitString[2])
-    // var sbForNullTerm strings.Builder
-    // sbForNullTerm.WriteString(splitString[1]) // TODO: Should maybe cleanup username so this isn't needed
-    // sbForNullTerm.WriteRune(lib.TERM_CHAR)    // stringbuilder for comparing username with recipient (because of null char)
     success := false
     for i := 0; i < len(userBuffers); i++ {
         if string(userBuffers[i][0]) == splitMessage[2] { // If recipient equals the username of userBuffer
@@ -178,7 +199,7 @@ func sendMessages(reader bufio.Reader, conn net.Conn) { // TODO: This is complic
 
 func saveMessages() { // Should this respond with result?
     var numOfMessages int
-    for i, userBuffer := range userBuffers { // TODO: Is probably redundant. Check out slices.Index() WARN: Nevermind.
+    for i, userBuffer := range userBuffers { // TODO: slices.Index() may work instead if you can nest them
         if len(userBuffer) <= 1 { // Skip iteration if there are no messages
             continue
         }
@@ -204,7 +225,7 @@ func saveMessages() { // Should this respond with result?
     fmt.Println(numOfMessages, "messages saved...")
 }
 
-func retrieveMessages() { // TODO: Format messages either when client recieves, or when server sends
+func retrieveMessages() { // TODO: Finish
     dirSlice, err := os.ReadDir("messages")
     if err != nil {
         fmt.Println("Error:", err)
@@ -216,4 +237,15 @@ func retrieveMessages() { // TODO: Format messages either when client recieves, 
             fmt.Println(scanner.Text())
         }
     }
+}
+
+func checkIfUserExists(username string) (bool, int) {
+    var index int
+    for i, userBuffer := range userBuffers {
+        if username == userBuffer[0] {
+            index = i
+            return true, 0
+        }
+    }
+    return false, index
 }

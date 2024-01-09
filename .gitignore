@@ -1,5 +1,6 @@
 server/*.txt
 server/Server
 server/messages
+server/secrets
 client/*.txt
 client/Client
