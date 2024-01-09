@@ -45,7 +45,7 @@ func main() {
     case CMD_LOG_IN:
         logIn(conn)
     default:
-        isLoggedIn := isLoggedIn(os.Args[1] == CMD_LOG_IN)
+        isLoggedIn := isLoggedIn(os.Args[1] == CMD_LOG_IN, conn)
         if isLoggedIn {
             switch os.Args[1] {
             case CMD_SEND: 
@@ -60,6 +60,7 @@ func main() {
                 fetchUsers(conn)
             }
         }
+        conn.Close()
     }
     // case ADM_CMD_DELETE_USER:
     //     adminDeleteUser(conn)
@@ -149,7 +150,7 @@ func signUp(conn net.Conn) bool { // TODO: Register with password. Should call l
     }
     hashedPassword := sha512.Sum512_256([]byte(password))
     hexHash := hex.EncodeToString(hashedPassword[:])
-    _ = binary.Write(conn, binary.LittleEndian, int16(lib.REGISTER_USER))
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.SIGN_UP_USER))
     conn.Write([]byte(username+string(lib.TERM_CHAR)))
     conn.Write([]byte(hexHash+string(lib.TERM_CHAR)))
     var response uint8
@@ -167,7 +168,7 @@ func signUp(conn net.Conn) bool { // TODO: Register with password. Should call l
     }
 }
 
-func isLoggedIn(cmdIsLogIn bool) bool {
+func isLoggedIn(cmdIsLogIn bool, conn net.Conn) bool {
     file, err := os.Open(".session.txt")
     if err != nil && !cmdIsLogIn { // If .session.txt does not exists and command is not "login"
         fmt.Println("You are not logged in.")
@@ -177,12 +178,8 @@ func isLoggedIn(cmdIsLogIn bool) bool {
             fmt.Scanln(&input)
             input = strings.ToLower(input)
             if input == "l" || input == "login" {
-                conn := makeConnection()
-                defer conn.Close()
                 return logIn(conn)
             } else if input == "s" || input == "signup" {
-                conn := makeConnection()
-                defer conn.Close()
                 return signUp(conn)
             } else if input == "c" || input == "" {
                 return false
@@ -204,6 +201,7 @@ func isLoggedIn(cmdIsLogIn bool) bool {
 }
 
 func logIn(conn net.Conn) bool {
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.LOG_IN_USER))
     var username string
     fmt.Print("Username: ")
     fmt.Scanln(&username)
@@ -212,12 +210,14 @@ func logIn(conn net.Conn) bool {
     fmt.Scanln(&password)
     hashedPassword := sha512.Sum512_256([]byte(password))
     hexHash := hex.EncodeToString(hashedPassword[:])
-    fmt.Println(hexHash)
     conn.Write([]byte(username+string(lib.TERM_CHAR)))
     conn.Write([]byte(hexHash+string(lib.TERM_CHAR)))
     var response uint8
     _ = binary.Read(conn, binary.LittleEndian, &response)
     if response == lib.OP_SUCCESS {
+        file, _ := os.OpenFile(".session.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        file.WriteString(username+"\n"+hexHash+"\n")
+        file.Close()
         fmt.Println("Successfully logged in!")
         return true
     } else {

@@ -45,10 +45,12 @@ func handleClient(conn net.Conn) {
         recieveMessage(*reader, conn)
     case lib.FETCH_MESSAGES:
         sendMessages(*reader, conn)
-    case lib.REGISTER_USER:
-        addUser(*reader, conn)
+    case lib.SIGN_UP_USER:
+        signUpUser(*reader, conn)
     case lib.FETCH_USERS:
         sendUsers(conn)
+    case lib.LOG_IN_USER:
+        logInUser(*reader, conn)
     // case lib.ADM_DELETE_USER:
     //     removeUser(*reader, conn)
     case lib.ADM_SAVE_MESSAGES:
@@ -58,7 +60,7 @@ func handleClient(conn net.Conn) {
     }
 }
 
-func addUser(reader bufio.Reader, conn net.Conn) {
+func signUpUser(reader bufio.Reader, conn net.Conn) {
     username, _ := reader.ReadString(lib.TERM_CHAR)
     username = lib.RemoveTermChar(username)
     password, _ := reader.ReadString(lib.TERM_CHAR) // TODO: Make a function for this..?
@@ -87,7 +89,7 @@ func logInUser(reader bufio.Reader, conn net.Conn) {
     username = lib.RemoveTermChar(username)
     password, _ := reader.ReadString(lib.TERM_CHAR) // TODO: Make a function for this..?
     password = lib.RemoveTermChar(password)
-    userExists, _ := checkIfUserExists(username)
+    userExists, _ := checkIfUserExists(username) // FIXME:
     if userExists {
         file, _ := os.Open("secrets/."+username)
         scanner := bufio.NewScanner(file)
@@ -244,7 +246,7 @@ func checkIfUserExists(username string) (bool, int) {
     for i, userBuffer := range userBuffers {
         if username == userBuffer[0] {
             index = i
-            return true, 0
+            return true, index
         }
     }
     return false, index
