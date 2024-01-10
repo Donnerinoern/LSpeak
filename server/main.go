@@ -45,12 +45,14 @@ func handleClient(conn net.Conn) {
         recieveMessage(*reader, conn)
     case lib.FETCH_MESSAGES:
         sendMessages(*reader, conn)
-    case lib.SIGN_UP_USER:
-        signUpUser(*reader, conn)
     case lib.FETCH_USERS:
         sendUsers(conn)
-    case lib.LOG_IN_USER:
-        logInUser(*reader, conn)
+    case lib.SIGN_UP_USER:
+        signUpUser(*reader, conn)
+    case lib.SIGN_IN_USER:
+        signInUser(*reader, conn)
+    case lib.DELETE_USER:
+        deleteUser(*reader, conn)
     // case lib.ADM_DELETE_USER:
     //     removeUser(*reader, conn)
     case lib.ADM_SAVE_MESSAGES:
@@ -84,12 +86,12 @@ func signUpUser(reader bufio.Reader, conn net.Conn) {
     }
 }
 
-func logInUser(reader bufio.Reader, conn net.Conn) {
+func signInUser(reader bufio.Reader, conn net.Conn) {
     username, _ := reader.ReadString(lib.TERM_CHAR)
     username = lib.RemoveTermChar(username)
     password, _ := reader.ReadString(lib.TERM_CHAR) // TODO: Make a function for this..?
     password = lib.RemoveTermChar(password)
-    userExists, _ := checkIfUserExists(username) // FIXME:
+    userExists, _ := checkIfUserExists(username)
     if userExists {
         file, _ := os.Open("secrets/."+username)
         scanner := bufio.NewScanner(file)
@@ -105,12 +107,12 @@ func logInUser(reader bufio.Reader, conn net.Conn) {
     }
 }
 
-// func removeUser(reader bufio.Reader, conn net.Conn) {
-//     
-// }
+func deleteUser(reader bufio.Reader, conn net.Conn) {
+    
+}
 
 func retrieveUsers() {
-    file, _ := os.OpenFile(".users.txt", os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm) // TODO: Can probably be changed to os.Open()
+    file, _ := os.OpenFile(".users.txt", os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm)
     scanner := bufio.NewScanner(file)
     users := make([]string, 0) // Make new slice for users
     i := 0                     // Index users

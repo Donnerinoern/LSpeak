@@ -9,9 +9,11 @@ I'll probably keep working on this until there is no more to change or to add. F
 ### Commands/args
 ---
 
-- send (string)
+- send (string) (string)
 - fetch
-- register (string)
+- signup
+- signin
+- signout
 - users
 
 ##### Examples:
@@ -20,9 +22,15 @@ I'll probably keep working on this until there is no more to change or to add. F
 
 `./Client fetch`
 
-`./Client register donnan`
-
 `./Client users`
+
+`./Client signup`
+
+`./Client signin`
+
+`./Client signout`
+
+`./Client delete`
 
 ### OpCodes
 ---
@@ -35,13 +43,16 @@ OpCodes lets the server know what operation is requested. For every connection w
 | ----------- | ----------- |
 | SEND_MESSAGE | 0 |
 | FETCH_MESSAGES | 1 | 
-| REGISTER_USER | 2 |
-| FETCH_USERS | 3 |
+| FETCH_USERS | 2 |
+| SIGN_UP_USER | 3 |
+| SIGN_IN_USER | 4 |
+| SIGN_OUT_USER | 5 |
+| DELETE_USER | 6 |
 
 ### Response
 ---
 
-When a user tries to register or send a message to a unregistered user, the server will respond with an integer corresponding with the result of the operation. This is either a OP_SUCCESS, or a OP_FAILURE.
+When a user performs an action with a result, the server will respond with an integer corresponding with the result of the operation. This is either a OP_SUCCESS, or a OP_FAILURE.
 
 | Name | Integer value |
 | ---- | ------------- |
