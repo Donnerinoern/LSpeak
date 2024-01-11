@@ -11,6 +11,10 @@ import (
     "donnan/LSpeak/lib"
 )
 
+const (
+    USERS_FILE = ".users.txt"
+)
+
 var (
     userBuffers [][]string // A slice of string slices for buffering messages to recipients
 )
@@ -53,8 +57,6 @@ func handleClient(conn net.Conn) {
         signInUser(*reader, conn)
     case lib.DELETE_USER:
         deleteUser(*reader, conn)
-    // case lib.ADM_DELETE_USER:
-    //     removeUser(*reader, conn)
     case lib.ADM_SAVE_MESSAGES:
         saveMessages()
     case lib.ADM_RETRIEVE_MESSAGES:
@@ -71,7 +73,7 @@ func signUpUser(reader bufio.Reader, conn net.Conn) {
     if userExists {
         _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
     } else {
-        file, _ := os.OpenFile(".users.txt", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+        file, _ := os.OpenFile(USERS_FILE, os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
         file.WriteString(username+"\n")
         file.Close()
         _, err := os.Stat("secrets") // Check if directory exists // TODO: Make a function for this..?
@@ -108,11 +110,40 @@ func signInUser(reader bufio.Reader, conn net.Conn) {
 }
 
 func deleteUser(reader bufio.Reader, conn net.Conn) {
-    
+    username, _ := reader.ReadString(lib.TERM_CHAR)
+    username = lib.RemoveTermChar(username)
+    password, _ := reader.ReadString(lib.TERM_CHAR)
+    password = lib.RemoveTermChar(password)
+    file, err := os.Open(USERS_FILE)
+    if err != nil {
+        _ = binary.Write(conn, binary.LittleEndian, lib.OP_FAILURE)
+        return
+    }
+    passwordFile, _ := os.Open("secrets/."+username)
+    scanner := bufio.NewScanner(passwordFile)
+    scanner.Scan()
+    if password != scanner.Text() {
+        _ = binary.Write(conn, binary.LittleEndian, lib.OP_FAILURE)
+        return
+    }
+    newFile, _ := os.OpenFile(USERS_FILE+".tmp", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
+    scanner = bufio.NewScanner(file)
+    for scanner.Scan() {
+        if username == scanner.Text() {
+            continue
+        }
+        newFile.WriteString(scanner.Text())
+    }
+    file.Close()
+    os.Remove(USERS_FILE)
+    os.Rename(newFile.Name(), USERS_FILE)
+    newFile.Close()
+    _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_SUCCESS))
+    retrieveUsers()
 }
 
 func retrieveUsers() {
-    file, _ := os.OpenFile(".users.txt", os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm)
+    file, _ := os.OpenFile(USERS_FILE, os.O_APPEND | os.O_CREATE | os.O_RDONLY, os.ModePerm)
     scanner := bufio.NewScanner(file)
     users := make([]string, 0) // Make new slice for users
     i := 0                     // Index users
