@@ -2,13 +2,14 @@ package main
 
 import (
 	"bufio"
+	"net"
 	"encoding/binary"
 	"fmt"
-	"net"
-    "strings"
-    "os"
-    "slices"
-    "donnan/LSpeak/lib"
+	"log"
+	"strings"
+	"os"
+	"slices"
+	"donnan/LSpeak/lib"
 )
 
 const (
@@ -65,10 +66,7 @@ func handleClient(conn net.Conn) {
 }
 
 func signUpUser(reader bufio.Reader, conn net.Conn) {
-    username, _ := reader.ReadString(lib.TERM_CHAR)
-    username = lib.RemoveTermChar(username)
-    password, _ := reader.ReadString(lib.TERM_CHAR) // TODO: Make a function for this..?
-    password = lib.RemoveTermChar(password)
+    username, password := getCredentials(reader)
     userExists, _ := checkIfUserExists(username)
     if userExists {
         _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
@@ -89,10 +87,7 @@ func signUpUser(reader bufio.Reader, conn net.Conn) {
 }
 
 func signInUser(reader bufio.Reader, conn net.Conn) {
-    username, _ := reader.ReadString(lib.TERM_CHAR)
-    username = lib.RemoveTermChar(username)
-    password, _ := reader.ReadString(lib.TERM_CHAR) // TODO: Make a function for this..?
-    password = lib.RemoveTermChar(password)
+    username, password := getCredentials(reader)
     userExists, _ := checkIfUserExists(username)
     if userExists {
         file, _ := os.Open("secrets/."+username)
@@ -110,10 +105,7 @@ func signInUser(reader bufio.Reader, conn net.Conn) {
 }
 
 func deleteUser(reader bufio.Reader, conn net.Conn) {
-    username, _ := reader.ReadString(lib.TERM_CHAR)
-    username = lib.RemoveTermChar(username)
-    password, _ := reader.ReadString(lib.TERM_CHAR)
-    password = lib.RemoveTermChar(password)
+    username, password := getCredentials(reader)
     file, err := os.Open(USERS_FILE)
     if err != nil {
         _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
@@ -126,13 +118,14 @@ func deleteUser(reader bufio.Reader, conn net.Conn) {
         _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
         return
     }
+    os.Remove("secrets/."+username)
     newFile, _ := os.OpenFile(USERS_FILE+".tmp", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
     scanner = bufio.NewScanner(file)
     for scanner.Scan() {
         if username == scanner.Text() {
             continue
         }
-        newFile.WriteString(scanner.Text())
+        newFile.WriteString(scanner.Text()+"\n")
     }
     file.Close()
     newFile.Close()
@@ -283,4 +276,15 @@ func checkIfUserExists(username string) (bool, int) {
         }
     }
     return false, index
+}
+
+func getCredentials(reader bufio.Reader) (string, string) {
+    username, err := reader.ReadString(lib.TERM_CHAR)
+    username = lib.RemoveTermChar(username)
+    password, err := reader.ReadString(lib.TERM_CHAR)
+    password = lib.RemoveTermChar(password)
+    if err != nil {
+        log.Fatal(err)
+    }
+    return username, password
 }
