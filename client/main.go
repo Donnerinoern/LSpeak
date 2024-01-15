@@ -194,9 +194,9 @@ func signUp() bool {
 func isSignedIn() bool {
     file, err := os.Open(SESSION_FILE)
     if err != nil { // If SESSION_FILE does not exists
-        fmt.Println("You are not logged in.")
+        fmt.Println("You are not signed in.")
         for {
-            fmt.Print("Do you want to sign in or sign up now? [C]ancel | sign[in] | sign[up]")
+            fmt.Print("Do you want to sign in or sign up now? [C]ancel | Sign[in] | Sign[up]")
             var input string
             fmt.Scanln(&input)
             input = strings.ToLower(input)
