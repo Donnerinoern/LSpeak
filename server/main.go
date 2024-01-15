@@ -116,14 +116,14 @@ func deleteUser(reader bufio.Reader, conn net.Conn) {
     password = lib.RemoveTermChar(password)
     file, err := os.Open(USERS_FILE)
     if err != nil {
-        _ = binary.Write(conn, binary.LittleEndian, lib.OP_FAILURE)
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
         return
     }
     passwordFile, _ := os.Open("secrets/."+username)
     scanner := bufio.NewScanner(passwordFile)
     scanner.Scan()
     if password != scanner.Text() {
-        _ = binary.Write(conn, binary.LittleEndian, lib.OP_FAILURE)
+        _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_FAILURE))
         return
     }
     newFile, _ := os.OpenFile(USERS_FILE+".tmp", os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.ModePerm)
@@ -135,9 +135,9 @@ func deleteUser(reader bufio.Reader, conn net.Conn) {
         newFile.WriteString(scanner.Text())
     }
     file.Close()
+    newFile.Close()
     os.Remove(USERS_FILE)
     os.Rename(newFile.Name(), USERS_FILE)
-    newFile.Close()
     _ = binary.Write(conn, binary.LittleEndian, uint8(lib.OP_SUCCESS))
     retrieveUsers()
 }

@@ -39,31 +39,6 @@ func main() {
         fmt.Println("Please provide a command.")
         return
     }
-    // if os.Args[1] == CMD_SIGN_OUT {
-    //     notLoggedIn := signOut()
-    //     if notLoggedIn {
-    //         fmt.Println("Couldn't sign out as you're not signed in.")
-    //     } else {
-    //         fmt.Println("Successfully signed out.")
-    //     }
-    //     return
-    // } else if os.Args[1] == CMD_SIGN_IN || os.Args[1] ==  CMD_SIGN_UP {
-    //     _, err := os.Open(SESSION_FILE)
-    //     if err == nil {
-    //         fmt.Println("You're already signed in.")
-    //         return
-    //     } else if os.Args[1] == CMD_SIGN_IN {
-    //         conn := makeConnection()
-    //         defer conn.Close()
-    //         signIn()
-    //         return
-    //     } else if os.Args[1] == CMD_SIGN_UP {
-    //         conn := makeConnection()
-    //         defer conn.Close()
-    //         signUp()
-    //         return
-    //     }
-    // }
     switch os.Args[1] {
     case CMD_SIGN_IN:
         signIn()
@@ -75,7 +50,7 @@ func main() {
         signOut()
         return
     }
-    isSignedIn := isSignedIn(os.Args[1] == CMD_SIGN_IN)
+    isSignedIn := isSignedIn()
     if isSignedIn {
         switch os.Args[1] {
         case CMD_SEND: 
@@ -92,7 +67,14 @@ func main() {
             deleteUser()
         default:
             fmt.Println("Please provide a valid command.")
-            fmt.Printf("Commands:\n%s\n%s\n%s\n%s\n%s\n%s\n%s", CMD_SEND, CMD_FETCH, CMD_USERS, CMD_SIGN_UP, CMD_SIGN_IN, CMD_SIGN_OUT, CMD_DELETE_USER)
+            fmt.Printf("Commands:\n%s\n%s\n%s\n%s\n%s\n%s\n%s", 
+                CMD_SEND,
+                CMD_FETCH,
+                CMD_USERS,
+                CMD_SIGN_UP,
+                CMD_SIGN_IN,
+                CMD_SIGN_OUT,
+                CMD_DELETE_USER)
         }
     }
 }
@@ -209,12 +191,12 @@ func signUp() bool {
     }
 }
 
-func isSignedIn(cmdIsLogIn bool) bool {
+func isSignedIn() bool {
     file, err := os.Open(SESSION_FILE)
-    if err != nil && !cmdIsLogIn { // If SESSION_FILE does not exists and command is not "login"
+    if err != nil { // If SESSION_FILE does not exists
         fmt.Println("You are not logged in.")
         for {
-            fmt.Print("Do you want to sign in or sign up now? sign(in)/sign(up)/(C)ancel ")
+            fmt.Print("Do you want to sign in or sign up now? [C]ancel | sign[in] | sign[up]")
             var input string
             fmt.Scanln(&input)
             input = strings.ToLower(input)
@@ -228,8 +210,6 @@ func isSignedIn(cmdIsLogIn bool) bool {
                 fmt.Println("Please provide a valid choice.")
             }
         }
-    } else if cmdIsLogIn {
-        return signIn()
     }
     scanner := bufio.NewScanner(file)
     scanner.Scan()
@@ -288,7 +268,7 @@ func signOut() bool {
 func deleteUser() {
     conn := makeConnection()
     defer conn.Close()
-    _ = binary.Write(conn, binary.LittleEndian, lib.DELETE_USER)
+    _ = binary.Write(conn, binary.LittleEndian, int16(lib.DELETE_USER))
     conn.Write([]byte(USERNAME+string(lib.TERM_CHAR)))
     conn.Write([]byte(PASSWORD+string(lib.TERM_CHAR)))
     var result uint8
