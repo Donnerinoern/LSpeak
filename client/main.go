@@ -80,10 +80,6 @@ func main() {
 }
 
 func sendMessage() {
-    if len(os.Args) < 3 {
-        fmt.Println("Please provide a user and a message.")
-        return
-    }
     conn := makeConnection()
     defer conn.Close()
     _ = binary.Write(conn, binary.LittleEndian, int16(lib.SEND_MESSAGE)) // Write opcode to connection
@@ -249,7 +245,7 @@ func signIn() bool {
         fmt.Println("Successfully signed in!")
         return true
     } else {
-        fmt.Println("Could not log in.")
+        fmt.Println("Could not sign in.")
         return false
     }
 }
